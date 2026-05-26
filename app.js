@@ -2263,10 +2263,10 @@ document.addEventListener('DOMContentLoaded', () => {
     o.items.forEach(item => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="padding: .4rem 0;">${item.product_code} - ${item.product_name}</td>
-        <td style="padding: .4rem 0; text-align: center;">${item.qty}</td>
-        <td style="padding: .4rem 0; text-align: right;">${formatIDR(item.price)}</td>
-        <td style="padding: .4rem 0; text-align: right;"><strong>${formatIDR(item.nominal)}</strong></td>
+        <td>${item.product_code} - ${item.product_name}</td>
+        <td style="text-align: center;">${item.qty}</td>
+        <td style="text-align: right;">${formatIDR(item.price)}</td>
+        <td style="text-align: right;"><strong>${formatIDR(item.nominal)}</strong></td>
       `;
       itemsTbody.appendChild(tr);
     });
