@@ -1,6 +1,6 @@
 /* 
   GAJAH MAS SALES REPORT SYSTEM - CORE LOGIC
-  Versi: 2 Role (Owner/Admin), Tanpa Chart.js, Desain Compact Profesional
+  Versi Revisional: 2 Role (Owner/Admin), PIN Secure Access, Left Sidebar Layout, Manual Inputs & Sales Order System
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,12 +10,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentSeller = 'Jossy';
   let filteredTxList = [];
   let pendingUploadData = null;
+  
+  // Auth state
   let activeRole = sessionStorage.getItem('gamas_role') || null;
+  let isDashboardUnlocked = sessionStorage.getItem('gamas_dashboard_unlocked') === 'true';
+
+  // New modules states
+  let bankAccounts = [];
+  let supplierBills = [];
+  let stockData = {};
+  let salesmen = [];
+  let salesOrders = [];
+  let activeCart = {}; // product_code -> qty
 
   lucide.createIcons();
 
   // --- LOAD / SAVE STATE ---
   function loadState() {
+    // Products
     const savedProducts = localStorage.getItem('gamas_products');
     if (savedProducts) {
       products = JSON.parse(savedProducts);
@@ -28,8 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { code: 'FB400', name: 'FITRI BOTOL 400ML', cash_price: 111100, tempo_price: 113600, buy_price: 107500 },
         { code: 'FB800', name: 'FITRI BOTOL 800ML', cash_price: 212600, tempo_price: 215100, buy_price: 201900 }
       ];
+      localStorage.setItem('gamas_products', JSON.stringify(products));
     }
 
+    // Transactions
     const savedTx = localStorage.getItem('gamas_transactions');
     if (savedTx) {
       transactions = JSON.parse(savedTx);
@@ -42,11 +56,75 @@ document.addEventListener('DOMContentLoaded', () => {
     transactions.forEach(t => {
       if (!t.id) t.id = 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9);
     });
+
+    // Bank Accounts (Info Rekening)
+    const savedBank = localStorage.getItem('gamas_bank_info');
+    if (savedBank) {
+      bankAccounts = JSON.parse(savedBank);
+    } else {
+      bankAccounts = [
+        { bank: 'BANK CENTRAL ASIA (BCA)', number: '8290-345-678', holder: 'CV GAJAH MAS DISTRIBUSI' },
+        { bank: 'BANK MANDIRI', number: '138-00-9876-543', holder: 'CV GAJAH MAS DISTRIBUSI' }
+      ];
+      localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
+    }
+
+    // Supplier Bills
+    const savedSupplier = localStorage.getItem('gamas_supplier_bills');
+    if (savedSupplier) {
+      supplierBills = JSON.parse(savedSupplier);
+    } else {
+      supplierBills = [
+        { supplier: 'PT FITRI MINYAK UTAMA', date: '2026-05-10', due: '2026-06-10', amount: 45000000, status: 'Unpaid' },
+        { supplier: 'UD BOTOL PLASTIK RAYA', date: '2026-05-15', due: '2026-06-15', amount: 12500000, status: 'Paid' }
+      ];
+      localStorage.setItem('gamas_supplier_bills', JSON.stringify(supplierBills));
+    }
+
+    // Stok Gudang
+    const savedStok = localStorage.getItem('gamas_stok');
+    if (savedStok) {
+      stockData = JSON.parse(savedStok);
+    } else {
+      stockData = {
+        FB200: 500,
+        FB400: 350,
+        FB800: 120
+      };
+      localStorage.setItem('gamas_stok', JSON.stringify(stockData));
+    }
+
+    // Salesmen Registry
+    const savedSalesmen = localStorage.getItem('gamas_salesmen');
+    if (savedSalesmen) {
+      salesmen = JSON.parse(savedSalesmen);
+    } else {
+      salesmen = [
+        { name: 'Jossy', phone: '628123456789', status: 'Active' },
+        { name: 'Raju', phone: '628523456789', status: 'Active' },
+        { name: 'Hafid', phone: '628987654321', status: 'Active' }
+      ];
+      localStorage.setItem('gamas_salesmen', JSON.stringify(salesmen));
+    }
+
+    // Sales Orders
+    const savedOrders = localStorage.getItem('gamas_orders');
+    if (savedOrders) {
+      salesOrders = JSON.parse(savedOrders);
+    } else {
+      salesOrders = [];
+      localStorage.setItem('gamas_orders', JSON.stringify(salesOrders));
+    }
   }
 
   function saveState() {
     localStorage.setItem('gamas_products', JSON.stringify(products));
     localStorage.setItem('gamas_transactions', JSON.stringify(transactions));
+    localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
+    localStorage.setItem('gamas_supplier_bills', JSON.stringify(supplierBills));
+    localStorage.setItem('gamas_stok', JSON.stringify(stockData));
+    localStorage.setItem('gamas_salesmen', JSON.stringify(salesmen));
+    localStorage.setItem('gamas_orders', JSON.stringify(salesOrders));
   }
 
   // --- HELPERS ---
@@ -72,41 +150,194 @@ document.addEventListener('DOMContentLoaded', () => {
     return m;
   }
 
+  // --- DYNAMIC SELECTORS LOADING ---
+  function populateSalesmenSelectors() {
+    const activeSalesmen = salesmen.filter(s => s.status === 'Active');
+    
+    // 1. App select salesman control (Data Transaksi)
+    const selControl = document.getElementById('seller-select-control');
+    if (selControl) {
+      const prevVal = selControl.value || currentSeller;
+      selControl.innerHTML = '';
+      activeSalesmen.forEach(s => {
+        selControl.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+      if (activeSalesmen.some(s => s.name === prevVal)) {
+        selControl.value = prevVal;
+        currentSeller = prevVal;
+      } else if (activeSalesmen.length > 0) {
+        selControl.value = activeSalesmen[0].name;
+        currentSeller = activeSalesmen[0].name;
+      }
+    }
+
+    // 2. Input Manual salesman selector
+    const manualSalesman = document.getElementById('sale-salesman');
+    if (manualSalesman) {
+      manualSalesman.innerHTML = '<option value="" disabled selected>Pilih...</option>';
+      activeSalesmen.forEach(s => {
+        manualSalesman.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+    }
+
+    // 3. Sales Order salesman selector
+    const orderSalesman = document.getElementById('order-salesman');
+    if (orderSalesman) {
+      orderSalesman.innerHTML = '<option value="" disabled selected>Pilih...</option>';
+      activeSalesmen.forEach(s => {
+        orderSalesman.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+    }
+
+    // 4. Edit Transaksi modal selector
+    const editSalesman = document.getElementById('tx-edit-salesman');
+    if (editSalesman) {
+      editSalesman.innerHTML = '';
+      activeSalesmen.forEach(s => {
+        editSalesman.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+    }
+  }
+
   // --- ROLE MANAGEMENT & LOGIN ---
   const viewLogin = document.getElementById('view-login');
   const appShell = document.getElementById('app-shell');
-  const btnRoleOwner = document.getElementById('btn-role-owner');
-  const btnRoleAdmin = document.getElementById('btn-role-admin');
-  const btnLoginSubmit = document.getElementById('btn-login-submit');
+  const pinErrorMsg = document.getElementById('pin-error-msg');
+  const pinInput = document.getElementById('pin-input');
   
-  let selectedRole = null;
+  let currentPin = '';
 
-  function selectRole(role) {
-    selectedRole = role;
-    btnRoleOwner.classList.toggle('selected', role === 'owner');
-    btnRoleAdmin.classList.toggle('selected', role === 'admin');
-    btnLoginSubmit.disabled = false;
+  // PIN Key clicks
+  document.querySelectorAll('.pin-key[data-val]').forEach(key => {
+    key.onclick = () => {
+      if (currentPin.length < 6) {
+        currentPin += key.getAttribute('data-val');
+        pinInput.value = '*'.repeat(currentPin.length);
+        pinErrorMsg.style.display = 'none';
+        
+        // Auto-check PIN on 6 digits
+        if (currentPin.length === 6) {
+          checkPINAuth();
+        }
+      }
+    };
+  });
+
+  // Clear PIN
+  const btnPinClear = document.getElementById('btn-pin-clear');
+  if (btnPinClear) {
+    btnPinClear.onclick = () => {
+      if (currentPin.length > 0) {
+        currentPin = currentPin.slice(0, -1);
+        pinInput.value = '*'.repeat(currentPin.length);
+      }
+    };
   }
 
-  btnRoleOwner.onclick = () => selectRole('owner');
-  btnRoleAdmin.onclick = () => selectRole('admin');
+  // Enter PIN manual trigger
+  const btnPinEnter = document.getElementById('btn-pin-enter');
+  if (btnPinEnter) {
+    btnPinEnter.onclick = () => {
+      if (currentPin.length > 0) {
+        checkPINAuth();
+      }
+    };
+  }
 
-  btnLoginSubmit.onclick = () => {
-    if (selectedRole) {
-      activeRole = selectedRole;
-      sessionStorage.setItem('gamas_role', activeRole);
+  // Validate entered PIN
+  function checkPINAuth() {
+    if (currentPin === '654321') {
+      // Login as Owner
+      activeRole = 'owner';
+      sessionStorage.setItem('gamas_role', 'owner');
+      // Keep locked by default on fresh login
+      isDashboardUnlocked = false;
+      sessionStorage.setItem('gamas_dashboard_unlocked', 'false');
       initApp();
+    } else if (currentPin === '123456') {
+      // Login as Admin
+      activeRole = 'admin';
+      sessionStorage.setItem('gamas_role', 'admin');
+      initApp();
+    } else {
+      // Wrong PIN
+      pinErrorMsg.style.display = 'flex';
+      const loginCard = document.querySelector('.login-card');
+      loginCard.style.animation = 'none';
+      setTimeout(() => {
+        loginCard.style.animation = 'shake 0.3s ease';
+      }, 10);
+      
+      currentPin = '';
+      pinInput.value = '';
     }
-  };
+  }
 
-  document.getElementById('btn-change-role').onclick = () => {
+  // Keyboard support for typing PIN
+  document.addEventListener('keydown', (e) => {
+    if (viewLogin.style.display !== 'none') {
+      if (e.key >= '0' && e.key <= '9') {
+        if (currentPin.length < 6) {
+          currentPin += e.key;
+          pinInput.value = '*'.repeat(currentPin.length);
+          pinErrorMsg.style.display = 'none';
+          if (currentPin.length === 6) checkPINAuth();
+        }
+      } else if (e.key === 'Backspace') {
+        if (currentPin.length > 0) {
+          currentPin = currentPin.slice(0, -1);
+          pinInput.value = '*'.repeat(currentPin.length);
+        }
+      } else if (e.key === 'Enter') {
+        checkPINAuth();
+      }
+    }
+  });
+
+  // Logout/Change role triggers
+  const changeRoleBtn = document.getElementById('btn-change-role');
+  if (changeRoleBtn) {
+    changeRoleBtn.onclick = logout;
+  }
+  const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+  if (sidebarLogoutBtn) {
+    sidebarLogoutBtn.onclick = logout;
+  }
+
+  function logout() {
     sessionStorage.removeItem('gamas_role');
+    sessionStorage.removeItem('gamas_dashboard_unlocked');
     activeRole = null;
-    selectedRole = null;
+    currentPin = '';
     window.location.hash = '#/';
     window.location.reload();
-  };
+  }
 
+  // --- MOBILE SIDEBAR DRAWER TOGGLE ---
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+  const appSidebar = document.getElementById('app-sidebar');
+  let sidebarBackdrop = document.createElement('div');
+  sidebarBackdrop.className = 'sidebar-backdrop';
+  document.body.appendChild(sidebarBackdrop);
+
+  if (sidebarToggleBtn && appSidebar) {
+    sidebarToggleBtn.onclick = () => {
+      appSidebar.classList.add('active');
+      sidebarBackdrop.classList.add('active');
+    };
+  }
+
+  sidebarBackdrop.onclick = closeMobileSidebar;
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    link.addEventListener('click', closeMobileSidebar);
+  });
+
+  function closeMobileSidebar() {
+    if (appSidebar) appSidebar.classList.remove('active');
+    sidebarBackdrop.classList.remove('active');
+  }
+
+  // Apply visual roles elements
   function applyRoleUI() {
     document.querySelectorAll('.owner-only').forEach(el => {
       el.style.display = activeRole === 'owner' ? '' : 'none';
@@ -117,89 +348,142 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const activeRoleText = document.getElementById('active-role-text');
     const activeRoleDot = document.getElementById('active-role-dot');
+    const sideRoleAvatar = document.getElementById('sidebar-role-avatar');
+    const sideRoleName = document.getElementById('sidebar-role-name');
     
     if (activeRole === 'owner') {
-      activeRoleText.textContent = 'Owner';
-      activeRoleDot.className = 'dot owner';
+      if (activeRoleText) activeRoleText.textContent = 'Owner';
+      if (activeRoleDot) activeRoleDot.className = 'dot owner';
+      if (sideRoleAvatar) {
+        sideRoleAvatar.textContent = 'O';
+        sideRoleAvatar.style.background = 'linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%)';
+      }
+      if (sideRoleName) sideRoleName.textContent = 'Owner Gajah Mas';
     } else {
-      activeRoleText.textContent = 'Admin';
-      activeRoleDot.className = 'dot admin';
+      if (activeRoleText) activeRoleText.textContent = 'Admin';
+      if (activeRoleDot) activeRoleDot.className = 'dot admin';
+      if (sideRoleAvatar) {
+        sideRoleAvatar.textContent = 'A';
+        sideRoleAvatar.style.background = 'linear-gradient(135deg, var(--green) 0%, #10b981 100%)';
+      }
+      if (sideRoleName) sideRoleName.textContent = 'Administrator';
     }
   }
 
-  // --- ROUTER ---
+  // --- ROUTER ENGINE ---
   const views = {
     'dashboard': document.getElementById('view-dashboard'),
     'seller-detail': document.getElementById('view-seller-detail'),
     'products': document.getElementById('view-products'),
     'daily-reports': document.getElementById('view-daily-reports'),
-    'new-sale': document.getElementById('view-new-sale')
+    'new-sale': document.getElementById('view-new-sale'),
+    'sales-order': document.getElementById('view-sales-order'),
+    'hari-ini': document.getElementById('view-hari-ini'),
+    'info-rekening': document.getElementById('view-info-rekening'),
+    'tagihan-supplier': document.getElementById('view-tagihan-supplier'),
+    'harga-produk': document.getElementById('view-harga-produk'),
+    'stok': document.getElementById('view-stok'),
+    'kelola-sales': document.getElementById('view-kelola-sales')
   };
-  const navLinks = document.querySelectorAll('.topbar-nav .tab-link, .bottom-nav .bottom-nav-link');
+
+  const sidebarLinks = document.querySelectorAll('.sidebar-nav .sidebar-link');
 
   function handleRoute() {
-    if (!activeRole) return; // Wait for login
+    if (!activeRole) return; // Wait for auth PIN
 
     let hash = window.location.hash || '#/';
     
-    // Redirect if accessing unauthorized route
+    // Security Routing Checks
     if (activeRole === 'admin' && hash === '#/') {
       hash = '#/sales/seller/Jossy';
       window.location.hash = hash;
       return;
     }
-    if (activeRole === 'owner' && (hash === '#/products' || hash === '#/daily_reports' || hash === '#/sales/new')) {
+    if (activeRole === 'owner' && (
+      hash === '#/products' || 
+      hash === '#/daily_reports' || 
+      hash === '#/sales/new' || 
+      hash === '#/kelola_sales'
+    )) {
       hash = '#/';
       window.location.hash = hash;
       return;
     }
 
+    // Hide all view screens
     Object.values(views).forEach(v => {
       if (v) v.classList.remove('active');
     });
-    navLinks.forEach(l => l.classList.remove('active'));
+    // Reset sidebar link indicators
+    sidebarLinks.forEach(l => l.classList.remove('active'));
 
     if (hash !== '#/daily_reports') cancelExcelUpload();
 
+    // Map Hash to Views
     if (hash === '#/' || hash === '') {
-      if(views['dashboard']) views['dashboard'].classList.add('active');
-      const navD = document.getElementById('nav-dashboard');
-      if (navD) navD.classList.add('active');
-      const mobD = document.getElementById('mobnav-dashboard');
-      if (mobD) mobD.classList.add('active');
+      if (views['dashboard']) views['dashboard'].classList.add('active');
+      const sideLink = document.getElementById('side-dashboard');
+      if (sideLink) sideLink.classList.add('active');
       renderDashboard();
     } else if (hash.startsWith('#/sales/seller/')) {
       const name = hash.split('/').pop();
       currentSeller = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-      if(views['seller-detail']) views['seller-detail'].classList.add('active');
-      const navS = document.getElementById('nav-seller');
-      if (navS) navS.classList.add('active');
-      const mobS = document.getElementById('mobnav-seller');
-      if (mobS) mobS.classList.add('active');
+      if (views['seller-detail']) views['seller-detail'].classList.add('active');
+      const sideLink = document.getElementById('side-seller');
+      if (sideLink) sideLink.classList.add('active');
       const selCtrl = document.getElementById('seller-select-control');
       if (selCtrl) selCtrl.value = currentSeller;
       renderSellerDetail();
     } else if (hash === '#/products') {
-      if(views['products']) views['products'].classList.add('active');
-      const navP = document.getElementById('nav-products');
-      if (navP) navP.classList.add('active');
-      const mobP = document.getElementById('mobnav-products');
-      if (mobP) mobP.classList.add('active');
+      if (views['products']) views['products'].classList.add('active');
+      const sideLink = document.getElementById('side-products');
+      if (sideLink) sideLink.classList.add('active');
       renderProductsCatalog();
     } else if (hash === '#/daily_reports') {
-      if(views['daily-reports']) views['daily-reports'].classList.add('active');
-      const navR = document.getElementById('nav-reports');
-      if (navR) navR.classList.add('active');
-      const mobR = document.getElementById('mobnav-reports');
-      if (mobR) mobR.classList.add('active');
+      if (views['daily-reports']) views['daily-reports'].classList.add('active');
+      const sideLink = document.getElementById('side-reports');
+      if (sideLink) sideLink.classList.add('active');
       setupExcelDropZone();
     } else if (hash === '#/sales/new') {
-      if(views['new-sale']) views['new-sale'].classList.add('active');
-      const navN = document.getElementById('nav-new-sale');
-      if (navN) navN.classList.add('active');
-      const mobN = document.getElementById('mobnav-new-sale');
-      if (mobN) mobN.classList.add('active');
+      if (views['new-sale']) views['new-sale'].classList.add('active');
+      const sideLink = document.getElementById('side-new-sale');
+      if (sideLink) sideLink.classList.add('active');
       setupManualSaleForm();
+    } else if (hash === '#/sales/order') {
+      if (views['sales-order']) views['sales-order'].classList.add('active');
+      const sideLink = document.getElementById('side-sales-order');
+      if (sideLink) sideLink.classList.add('active');
+      renderSalesOrderModule();
+    } else if (hash === '#/hari_ini') {
+      if (views['hari-ini']) views['hari-ini'].classList.add('active');
+      const sideLink = document.getElementById('side-hari-ini');
+      if (sideLink) sideLink.classList.add('active');
+      renderLaporanHariIni();
+    } else if (hash === '#/info_rekening') {
+      if (views['info-rekening']) views['info-rekening'].classList.add('active');
+      const sideLink = document.getElementById('side-rekening');
+      if (sideLink) sideLink.classList.add('active');
+      renderInfoRekening();
+    } else if (hash === '#/tagihan_supplier') {
+      if (views['tagihan-supplier']) views['tagihan-supplier'].classList.add('active');
+      const sideLink = document.getElementById('side-tagihan');
+      if (sideLink) sideLink.classList.add('active');
+      renderTagihanSupplier();
+    } else if (hash === '#/harga_produk') {
+      if (views['harga-produk']) views['harga-produk'].classList.add('active');
+      const sideLink = document.getElementById('side-harga-produk');
+      if (sideLink) sideLink.classList.add('active');
+      renderHargaProdukCatalog();
+    } else if (hash === '#/stok') {
+      if (views['stok']) views['stok'].classList.add('active');
+      const sideLink = document.getElementById('side-stok');
+      if (sideLink) sideLink.classList.add('active');
+      renderStokGudang();
+    } else if (hash === '#/kelola_sales') {
+      if (views['kelola-sales']) views['kelola-sales'].classList.add('active');
+      const sideLink = document.getElementById('side-kelola-sales');
+      if (sideLink) sideLink.classList.add('active');
+      renderKelolaSalesman();
     }
   }
 
@@ -219,18 +503,44 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderDashboard() {
     if (activeRole !== 'owner') return;
 
+    // Apply dashboard lock animation overlay
+    const overlay = document.getElementById('dashboard-lock-overlay');
+    const unlockedContent = document.getElementById('dashboard-unlocked-content');
+    
+    if (overlay && unlockedContent) {
+      if (isDashboardUnlocked) {
+        overlay.style.display = 'none';
+        unlockedContent.classList.remove('blurred');
+      } else {
+        overlay.style.display = 'flex';
+        unlockedContent.classList.add('blurred');
+      }
+    }
+
     const prodMap = getProdMap();
     let qtyCash = 0, valCash = 0, profitCash = 0;
     let qtyTempo = 0, valTempo = 0, profitTempo = 0;
-    const txCounts = { Jossy: { Cash: 0, Tempo: 0 }, Raju: { Cash: 0, Tempo: 0 }, Hafid: { Cash: 0, Tempo: 0 } };
+
+    // Create counting based on dynamically loaded registry
+    const txCounts = {};
+    salesmen.forEach(s => {
+      txCounts[s.name] = { Cash: 0, Tempo: 0 };
+    });
 
     transactions.forEach(t => {
       const p = prodMap[t.product_code];
       const buyPrice = p ? p.buy_price : 0;
       const profit = t.nominal - (t.qty * buyPrice);
+      
+      // Safety mapping
       if (txCounts[t.salesman]) {
         txCounts[t.salesman][t.payment_type === 'Cash' ? 'Cash' : 'Tempo']++;
+      } else {
+        // Fallback for new salesman records from WA
+        txCounts[t.salesman] = { Cash: 0, Tempo: 0 };
+        txCounts[t.salesman][t.payment_type === 'Cash' ? 'Cash' : 'Tempo']++;
       }
+
       if (t.payment_type === 'Cash') {
         qtyCash += t.qty; valCash += t.nominal; profitCash += profit;
       } else {
@@ -266,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
         grandCash += cash; grandTempo += tempo;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td data-label="Salesman">${s}</td>
+          <td data-label="Salesman"><b>${s}</b></td>
           <td data-label="Cash">${cash}</td>
           <td data-label="Tempo">${tempo}</td>
           <td data-label="Total"><b>${cash + tempo}</b></td>
@@ -285,14 +595,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Dashboard Lock Button triggers
+  const btnUnlockDashboard = document.getElementById('btn-unlock-dashboard');
+  if (btnUnlockDashboard) {
+    btnUnlockDashboard.onclick = () => {
+      isDashboardUnlocked = true;
+      sessionStorage.setItem('gamas_dashboard_unlocked', 'true');
+      
+      const overlay = document.getElementById('dashboard-lock-overlay');
+      const unlockedContent = document.getElementById('dashboard-unlocked-content');
+      
+      if (overlay && unlockedContent) {
+        overlay.style.opacity = '0';
+        overlay.style.transform = 'scale(0.95)';
+        overlay.style.transition = 'all 0.35s ease';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          unlockedContent.classList.remove('blurred');
+          renderDashboard();
+        }, 350);
+      }
+    };
+  }
+
   function renderSalesmenCards(prodMap) {
     const container = document.getElementById('dash-salesmen-cards');
     if (!container) return;
     container.innerHTML = '';
-    ['Jossy', 'Raju', 'Hafid'].forEach((s, idx) => {
+    
+    // Only display dynamic active salesmen
+    salesmen.filter(s => s.status === 'Active').forEach((s, idx) => {
+      const salesmanName = s.name;
       let totalSales = 0, cashSales = 0, tempoSales = 0, totalQty = 0, profitCash = 0, profitTempo = 0;
+      
       transactions.forEach(t => {
-        if (t.salesman.toLowerCase() === s.toLowerCase()) {
+        if (t.salesman.toLowerCase() === salesmanName.toLowerCase()) {
           const p = prodMap[t.product_code];
           const buyPrice = p ? p.buy_price : 0;
           const profit = t.nominal - (t.qty * buyPrice);
@@ -307,23 +644,23 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'salesman-card';
       card.innerHTML = `
         <div class="sc-header">
-          <div class="sc-avatar idx-${idx}">${s.charAt(0)}</div>
+          <div class="sc-avatar idx-${idx % 3}">${salesmanName.charAt(0)}</div>
           <div>
-            <div class="sc-name">${s.toUpperCase()}</div>
-            <div class="sc-role-label">Salesman</div>
+            <div class="sc-name">${salesmanName.toUpperCase()}</div>
+            <div class="sc-role-label">Salesman Resmi</div>
           </div>
         </div>
         <div class="sc-body">
           <div class="sc-row"><span>Volume</span><span class="val">${totalQty.toLocaleString('id-ID')} krat</span></div>
           <div class="sc-row"><span>Omset</span><span class="val blue">${formatIDR(totalSales)}</span></div>
           <div class="sc-profit-row">
-            <div class="sc-profit-item"><div class="sc-profit-label">Cash</div><div class="sc-profit-val blue">${formatIDR(profitCash)}</div></div>
-            <div class="sc-profit-item"><div class="sc-profit-label">Tempo</div><div class="sc-profit-val amber">${formatIDR(profitTempo)}</div></div>
+            <div class="sc-profit-item"><div class="sc-profit-label">PROFIT CASH</div><div class="sc-profit-val blue">${formatIDR(profitCash)}</div></div>
+            <div class="sc-profit-item"><div class="sc-profit-label">PROFIT TEMPO</div><div class="sc-profit-val amber">${formatIDR(profitTempo)}</div></div>
           </div>
-          <div style="margin-top: .5rem; text-align: right;"><span class="val green" style="font-size: .85rem;">${formatIDR(totalProfit)}</span></div>
+          <div style="margin-top: .5rem; text-align: right;"><span class="val green" style="font-size: .85rem; font-weight: 700;">Total: ${formatIDR(totalProfit)}</span></div>
         </div>
         <div class="sc-footer">
-          <a href="#/sales/seller/${s.toLowerCase()}" class="sc-detail-btn">Lihat Detail <i data-lucide="chevron-right"></i></a>
+          <a href="#/sales/seller/${salesmanName.toLowerCase()}" class="sc-detail-btn">Lihat Detail Laporan <i data-lucide="chevron-right"></i></a>
         </div>
       `;
       container.appendChild(card);
@@ -464,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyTbody.innerHTML = '';
 
       if (filteredTxList.length === 0) {
-        dailyTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-2);padding:1.5rem">Tidak ada data.</td></tr>';
+        dailyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-2);padding:1.5rem">Tidak ada data.</td></tr>';
         return;
       }
 
@@ -489,7 +826,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dailyTbody.appendChild(tr);
       });
       
-      // Render ikon untuk tombol aksi
       lucide.createIcons();
     }
 
@@ -532,6 +868,8 @@ document.addEventListener('DOMContentLoaded', () => {
       doExportExcel();
     }
     if (e.target.closest('#btn-print-pdf')) {
+      const printDateEl = document.getElementById('print-date');
+      if (printDateEl) printDateEl.textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
       window.print();
     }
   });
@@ -636,7 +974,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     products.forEach((p, idx) => {
-      const totalSales = productSalesQty[p.code] || 0;
       const card = document.createElement('div');
       card.className = 'product-card';
       card.innerHTML = `
@@ -763,9 +1100,15 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheets = workbook.SheetNames;
-        const required = ['JOSSY','RAJU','HAFID'];
+        const required = salesmen.filter(s => s.status === 'Active').map(s => s.name.toUpperCase());
+        if (required.length === 0) {
+          alert('Belum ada salesmen aktif terdaftar!');
+          return;
+        }
+        
+        // Match sheet dynamic
         if (!required.every(s => sheets.map(x => x.toUpperCase()).includes(s))) {
-          alert('Excel harus berisi sheet JOSSY, RAJU, dan HAFID!');
+          alert(`Excel harus berisi sheet sesuai nama sales aktif: ${required.join(', ')}`);
           return;
         }
         document.getElementById('chk-sheet').classList.add('valid');
@@ -948,6 +1291,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const qty         = parseInt(inputQty.value);
       const paymentType = inputPayment.value;
       const price       = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
+      
       transactions.unshift({
         id: 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9),
         salesman:     inputSalesman.value,
@@ -964,7 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
       form.reset();
       inputDate.value = today;
       updateCalc();
-      window.location.hash = '#/sales/seller/Jossy';
+      window.location.hash = `#/sales/seller/${inputSalesman.value.toLowerCase()}`;
     };
 
     document.getElementById('btn-reset-form').onclick = () => {
@@ -1057,19 +1401,1002 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // ════════════════════════════════════════
-  // BOOTSTRAP
+  // NEW VIEW: INFO REKENING (Manual Input)
+  // ════════════════════════════════════════
+  function renderInfoRekening() {
+    const container = document.getElementById('bank-cards-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    bankAccounts.forEach((ba, idx) => {
+      const card = document.createElement('div');
+      card.className = 'bank-card';
+      card.innerHTML = `
+        <div class="bank-card-header">
+          <div class="bank-logo-text">${ba.bank}</div>
+          <div class="bank-card-chip"></div>
+        </div>
+        <div class="bank-card-no">${ba.number}</div>
+        <div>
+          <div class="bank-card-holder-label">Atas Nama</div>
+          <div class="bank-card-holder">${ba.holder}</div>
+        </div>
+        <div class="admin-only no-print" style="position: absolute; top: 1rem; right: 1rem; display: ${activeRole === 'admin' ? '' : 'none'};">
+          <button class="btn btn-ghost btn-edit-bank-item" data-index="${idx}" style="color: #fff; padding: 2px;"><i data-lucide="edit-2" style="width:14px;height:14px;"></i></button>
+          <button class="btn btn-ghost btn-del-bank-item" data-index="${idx}" style="color: var(--red); padding: 2px;"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    lucide.createIcons();
+    setupBankEditingHandlers();
+  }
+
+  function setupBankEditingHandlers() {
+    const editBankBtn = document.getElementById('btn-edit-bank');
+    if (editBankBtn) {
+      editBankBtn.onclick = () => openBankModal();
+    }
+    
+    // Grid item edits
+    document.querySelectorAll('.btn-edit-bank-item').forEach(btn => {
+      btn.onclick = () => {
+        const idx = btn.getAttribute('data-index');
+        openBankModal(idx);
+      };
+    });
+
+    // Grid item deletes
+    document.querySelectorAll('.btn-del-bank-item').forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.getAttribute('data-index'));
+        if (confirm('Hapus rekening ini?')) {
+          bankAccounts.splice(idx, 1);
+          saveState();
+          renderInfoRekening();
+        }
+      };
+    });
+  }
+
+  // Bank Account Modal bindings
+  const bankModal = document.getElementById('bank-modal');
+  const bankForm = document.getElementById('bank-form');
+  let currentEditingBankIdx = null;
+
+  function openBankModal(index = null) {
+    if (!bankModal) return;
+    bankModal.classList.add('active');
+    
+    const bankNameInput = document.getElementById('bank-name-input');
+    const bankNumberInput = document.getElementById('bank-number-input');
+    const bankHolderInput = document.getElementById('bank-holder-input');
+
+    if (index !== null) {
+      currentEditingBankIdx = parseInt(index);
+      const ba = bankAccounts[currentEditingBankIdx];
+      bankNameInput.value = ba.bank;
+      bankNumberInput.value = ba.number;
+      bankHolderInput.value = ba.holder;
+    } else {
+      currentEditingBankIdx = null;
+      bankNameInput.value = '';
+      bankNumberInput.value = '';
+      bankHolderInput.value = '';
+    }
+  }
+
+  function closeBankModal() {
+    if (bankModal) bankModal.classList.remove('active');
+  }
+
+  const btnCloseBankM = document.getElementById('btn-close-bank-modal');
+  if (btnCloseM || btnCloseBankM) {
+    const targetClose = btnCloseBankM || btnCloseM;
+    targetClose.onclick = closeBankModal;
+  }
+  const btnCancelBankM = document.getElementById('btn-cancel-bank-modal');
+  if (btnCancelBankM) btnCancelBankM.onclick = closeBankModal;
+
+  if (bankForm) {
+    bankForm.onsubmit = (e) => {
+      e.preventDefault();
+      const bank = document.getElementById('bank-name-input').value.toUpperCase().trim();
+      const number = document.getElementById('bank-number-input').value.trim();
+      const holder = document.getElementById('bank-holder-input').value.toUpperCase().trim();
+      
+      if (currentEditingBankIdx !== null) {
+        bankAccounts[currentEditingBankIdx] = { bank, number, holder };
+      } else {
+        bankAccounts.push({ bank, number, holder });
+      }
+      
+      saveState();
+      closeBankModal();
+      renderInfoRekening();
+      alert('Info rekening berhasil disimpan!');
+    };
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: TAGIHAN SUPPLIER (Manual Input)
+  // ════════════════════════════════════════
+  function renderTagihanSupplier() {
+    const tbody = document.getElementById('supplier-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (supplierBills.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada tagihan supplier terdaftar.</td></tr>';
+      return;
+    }
+
+    supplierBills.forEach((sb, idx) => {
+      const tr = document.createElement('tr');
+      const statusBadgeClass = sb.status === 'Paid' ? 'status-paid' : 'status-unpaid';
+      const statusLabel = sb.status === 'Paid' ? 'LUNAS' : 'BELUM LUNAS';
+      
+      tr.innerHTML = `
+        <td data-label="Supplier"><b>${sb.supplier}</b></td>
+        <td data-label="Tanggal Invoice">${new Date(sb.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td data-label="Jatuh Tempo">${new Date(sb.due).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td data-label="Nominal" style="font-weight: 700; color: var(--accent);">${formatIDR(sb.amount)}</td>
+        <td data-label="Status"><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
+        <td data-label="Aksi" class="admin-only" style="text-align: center; display: ${activeRole === 'admin' ? '' : 'none'};">
+          <button class="btn-ghost btn-edit-supplier" data-index="${idx}" title="Edit"><i data-lucide="edit-2"></i></button>
+          <button class="btn-ghost btn-del-supplier" data-index="${idx}" style="color:var(--red);" title="Hapus"><i data-lucide="trash-2"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+    setupSupplierEventHandlers();
+  }
+
+  function setupSupplierEventHandlers() {
+    const btnNewTagihan = document.getElementById('btn-new-tagihan');
+    if (btnNewTagihan) {
+      btnNewTagihan.onclick = () => openSupplierModal();
+    }
+
+    document.querySelectorAll('.btn-edit-supplier').forEach(btn => {
+      btn.onclick = () => {
+        openSupplierModal(btn.getAttribute('data-index'));
+      };
+    });
+
+    document.querySelectorAll('.btn-del-supplier').forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.getAttribute('data-index'));
+        if (confirm('Apakah Anda yakin ingin menghapus tagihan supplier ini?')) {
+          supplierBills.splice(idx, 1);
+          saveState();
+          renderTagihanSupplier();
+        }
+      };
+    });
+  }
+
+  // Supplier modal bindings
+  const supplierModal = document.getElementById('supplier-modal');
+  const supplierForm = document.getElementById('supplier-form');
+
+  function openSupplierModal(index = null) {
+    if (!supplierModal) return;
+    supplierModal.classList.add('active');
+
+    const inputIdx = document.getElementById('supplier-edit-index');
+    const inputName = document.getElementById('supplier-name-input');
+    const inputDate = document.getElementById('supplier-date-input');
+    const inputDue = document.getElementById('supplier-due-input');
+    const inputAmount = document.getElementById('supplier-amount-input');
+    const inputStatus = document.getElementById('supplier-status-input');
+
+    document.getElementById('supplier-modal-title').textContent =
+      index !== null ? 'Edit Tagihan Supplier' : 'Tambah Tagihan Supplier';
+
+    if (index !== null) {
+      const sb = supplierBills[index];
+      inputIdx.value = index;
+      inputName.value = sb.supplier;
+      inputDate.value = sb.date;
+      inputDue.value = sb.due;
+      inputAmount.value = sb.amount;
+      inputStatus.value = sb.status;
+    } else {
+      inputIdx.value = '';
+      inputName.value = '';
+      inputDate.value = new Date().toISOString().split('T')[0];
+      inputDue.value = new Date().toISOString().split('T')[0];
+      inputAmount.value = '';
+      inputStatus.value = 'Unpaid';
+    }
+  }
+
+  function closeSupplierModal() {
+    if (supplierModal) supplierModal.classList.remove('active');
+  }
+
+  const btnCloseSupplierM = document.getElementById('btn-close-supplier-modal');
+  if (btnCloseSupplierM) btnCloseSupplierM.onclick = closeSupplierModal;
+  const btnCancelSupplierM = document.getElementById('btn-cancel-supplier-modal');
+  if (btnCancelSupplierM) btnCancelSupplierM.onclick = closeSupplierModal;
+
+  if (supplierForm) {
+    supplierForm.onsubmit = (e) => {
+      e.preventDefault();
+      const index = document.getElementById('supplier-edit-index').value;
+      const supplier = document.getElementById('supplier-name-input').value.toUpperCase().trim();
+      const date = document.getElementById('supplier-date-input').value;
+      const due = document.getElementById('supplier-due-input').value;
+      const amount = parseFloat(document.getElementById('supplier-amount-input').value);
+      const status = document.getElementById('supplier-status-input').value;
+
+      const payload = { supplier, date, due, amount, status };
+
+      if (index !== '') {
+        supplierBills[index] = payload;
+      } else {
+        supplierBills.unshift(payload);
+      }
+
+      saveState();
+      closeSupplierModal();
+      renderTagihanSupplier();
+      alert('Data tagihan supplier disimpan!');
+    };
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: HARGA PRODUK (Manual Input)
+  // ════════════════════════════════════════
+  function renderHargaProdukCatalog() {
+    const container = document.getElementById('product-price-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    products.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'price-catalog-card';
+      card.innerHTML = `
+        <span class="pcc-code-tag">${p.code}</span>
+        <div class="pcc-name">${p.name}</div>
+        <div class="pcc-price-row">
+          <div class="pcc-price-col">
+            <span>Harga Cash</span>
+            <strong class="accent">${formatIDR(p.cash_price)}</strong>
+          </div>
+          <div class="pcc-price-col" style="text-align: right;">
+            <span>Harga Tempo</span>
+            <strong class="amber">${formatIDR(p.tempo_price)}</strong>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: STOK GUDANG (Manual Input)
+  // ════════════════════════════════════════
+  function renderStokGudang() {
+    const container = document.getElementById('stok-metrics-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    products.forEach(p => {
+      const currentStock = stockData[p.code] || 0;
+      const isLowStock = currentStock < 50;
+      const lowStockTag = isLowStock ? '<span class="stok-mc-label" style="background: var(--red-light); color: var(--red);">STOK MENIPIS</span>' : '<span class="stok-mc-label">STOK AMAN</span>';
+      
+      const card = document.createElement('div');
+      card.className = 'stok-metric-card';
+      card.innerHTML = `
+        <div class="stok-mc-info">
+          ${lowStockTag}
+          <div class="stok-mc-name">${p.name}</div>
+        </div>
+        <div class="stok-mc-val">
+          ${currentStock.toLocaleString('id-ID')}
+          <span class="stok-mc-unit">krat</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // Stok Modal bindings (Admin only)
+  const stokModal = document.getElementById('stok-modal');
+  const stokForm = document.getElementById('stok-form');
+  const btnAddStokModal = document.getElementById('btn-add-stok-modal');
+
+  if (btnAddStokModal) {
+    btnAddStokModal.onclick = () => {
+      if (stokModal) stokModal.classList.add('active');
+      const stokProdSel = document.getElementById('stok-product-input');
+      if (stokProdSel) {
+        stokProdSel.innerHTML = '';
+        products.forEach(p => {
+          stokProdSel.innerHTML += `<option value="${p.code}">${p.code} - ${p.name}</option>`;
+        });
+      }
+    };
+  }
+
+  function closeStokModal() {
+    if (stokModal) stokModal.classList.remove('active');
+  }
+
+  const btnCloseStokM = document.getElementById('btn-close-stok-modal');
+  if (btnCloseStokM) btnCloseStokM.onclick = closeStokModal;
+  const btnCancelStokM = document.getElementById('btn-cancel-stok-modal');
+  if (btnCancelStokM) btnCancelStokM.onclick = closeStokModal;
+
+  if (stokForm) {
+    stokForm.onsubmit = (e) => {
+      e.preventDefault();
+      const code = document.getElementById('stok-product-input').value;
+      const qty = parseInt(document.getElementById('stok-qty-input').value);
+      
+      stockData[code] = (stockData[code] || 0) + qty;
+      saveState();
+      closeStokModal();
+      renderStokGudang();
+      alert(`Stok ${code} berhasil ditambahkan sebanyak ${qty} krat!`);
+      if (stokForm) stokForm.reset();
+    };
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: LAPORAN HARI INI
+  // ════════════════════════════════════════
+  function renderLaporanHariIni() {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Update subtitle date description
+    const formattedToday = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const subtitle = document.getElementById('hari-ini-subtitle');
+    if (subtitle) subtitle.textContent = `Laporan transaksi per tanggal ${formattedToday}`;
+
+    let totalVolume = 0;
+    let totalSalesVal = 0;
+    let cashIncomingVal = 0;
+    let tempoIncomingVal = 0;
+
+    const todayTbody = document.getElementById('today-table-body');
+    if (!todayTbody) return;
+    todayTbody.innerHTML = '';
+
+    const todayTx = transactions.filter(t => t.date === today);
+
+    if (todayTx.length === 0) {
+      todayTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada transaksi tercatat untuk hari ini.</td></tr>';
+      
+      document.getElementById('today-val-sales').textContent = 'Rp 0';
+      document.getElementById('today-qty-sales').textContent = '0';
+      document.getElementById('today-val-cash').textContent = 'Rp 0';
+      document.getElementById('today-val-tempo').textContent = 'Rp 0';
+      return;
+    }
+
+    todayTx.forEach(t => {
+      totalVolume += t.qty;
+      totalSalesVal += t.nominal;
+      if (t.payment_type === 'Cash') {
+        cashIncomingVal += t.nominal;
+      } else {
+        tempoIncomingVal += t.nominal;
+      }
+
+      const tr = document.createElement('tr');
+      const badgeClass = t.payment_type.toLowerCase();
+      tr.innerHTML = `
+        <td data-label="Salesman"><b>${t.salesman}</b></td>
+        <td data-label="Customer">${t.customer}</td>
+        <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
+        <td data-label="Qty">${t.qty}</td>
+        <td data-label="Harga">${formatIDR(t.price)}</td>
+        <td data-label="Nominal" style="font-weight: 600; color: var(--accent);">${formatIDR(t.nominal)}</td>
+        <td data-label="Pembayaran"><span class="badge ${badgeClass}">${t.payment_type}</span></td>
+      `;
+      todayTbody.appendChild(tr);
+    });
+
+    document.getElementById('today-val-sales').textContent = formatIDR(totalSalesVal);
+    document.getElementById('today-qty-sales').textContent = totalVolume.toLocaleString('id-ID');
+    document.getElementById('today-val-cash').textContent = formatIDR(cashIncomingVal);
+    document.getElementById('today-val-tempo').textContent = formatIDR(tempoIncomingVal);
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: KELOLA SALESMAN (Admin Only)
+  // ════════════════════════════════════════
+  function renderKelolaSalesman() {
+    if (activeRole !== 'admin') return;
+
+    const tbody = document.getElementById('salesman-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    salesmen.forEach((s, idx) => {
+      const tr = document.createElement('tr');
+      const statusBadge = s.status === 'Active' ? 'badge green' : 'badge';
+      const statusLabel = s.status === 'Active' ? 'AKTIF' : 'KELUAR';
+      
+      tr.innerHTML = `
+        <td data-label="Nama Salesman"><b>${s.name}</b></td>
+        <td data-label="No WhatsApp">${s.phone}</td>
+        <td data-label="Status"><span class="${statusBadge}">${statusLabel}</span></td>
+        <td data-label="Aksi" class="admin-only" style="text-align: center;">
+          <button class="btn-ghost btn-edit-salesman" data-index="${idx}" title="Edit"><i data-lucide="edit-2"></i></button>
+          <button class="btn-ghost btn-del-salesman" data-index="${idx}" style="color:var(--red);" title="Hapus"><i data-lucide="trash-2"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+    setupSalesmenEventHandlers();
+  }
+
+  function setupSalesmenEventHandlers() {
+    const btnNewSalesman = document.getElementById('btn-new-salesman');
+    if (btnNewSalesman) {
+      btnNewSalesman.onclick = () => openSalesmanModal();
+    }
+
+    document.querySelectorAll('.btn-edit-salesman').forEach(btn => {
+      btn.onclick = () => {
+        openSalesmanModal(btn.getAttribute('data-index'));
+      };
+    });
+
+    document.querySelectorAll('.btn-del-salesman').forEach(btn => {
+      btn.onclick = () => {
+        const idx = parseInt(btn.getAttribute('data-index'));
+        if (confirm('Hapus salesman ini? Catatan transaksi historis akan tetap dipertahankan, namun nama akan hilang dari menu input.')) {
+          salesmen.splice(idx, 1);
+          saveState();
+          populateSalesmenSelectors();
+          renderKelolaSalesman();
+        }
+      };
+    });
+  }
+
+  // Salesman modal triggers
+  const salesmanModal = document.getElementById('salesman-modal');
+  const salesmanForm = document.getElementById('salesman-form');
+
+  function openSalesmanModal(index = null) {
+    if (!salesmanModal) return;
+    salesmanModal.classList.add('active');
+
+    const inputIdx = document.getElementById('salesman-edit-index');
+    const inputName = document.getElementById('salesman-name-input');
+    const inputPhone = document.getElementById('salesman-phone-input');
+    const inputStatus = document.getElementById('salesman-status-input');
+
+    document.getElementById('salesman-modal-title').textContent =
+      index !== null ? 'Edit Salesman' : 'Tambah Salesman Baru';
+
+    if (index !== null) {
+      const s = salesmen[index];
+      inputIdx.value = index;
+      inputName.value = s.name;
+      inputPhone.value = s.phone;
+      inputStatus.value = s.status;
+    } else {
+      inputIdx.value = '';
+      inputName.value = '';
+      inputPhone.value = '';
+      inputStatus.value = 'Active';
+    }
+  }
+
+  function closeSalesmanModal() {
+    if (salesmanModal) salesmanModal.classList.remove('active');
+  }
+
+  const btnCloseSalesmanM = document.getElementById('btn-close-salesman-modal');
+  if (btnCloseSalesmanM) btnCloseSalesmanM.onclick = closeSalesmanModal;
+  const btnCancelSalesmanM = document.getElementById('btn-cancel-salesman-modal');
+  if (btnCancelSalesmanM) btnCancelSalesmanM.onclick = closeSalesmanModal;
+
+  if (salesmanForm) {
+    salesmanForm.onsubmit = (e) => {
+      e.preventDefault();
+      const index = document.getElementById('salesman-edit-index').value;
+      const name = document.getElementById('salesman-name-input').value.trim();
+      let phone = document.getElementById('salesman-phone-input').value.trim();
+      const status = document.getElementById('salesman-status-input').value;
+
+      // Clean WhatsApp format
+      if (phone.startsWith('0')) {
+        phone = '62' + phone.substring(1);
+      } else if (phone.startsWith('+')) {
+        phone = phone.replace('+', '');
+      }
+
+      const payload = { name, phone, status };
+
+      if (index !== '') {
+        salesmen[index] = payload;
+      } else {
+        if (salesmen.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+          alert('Nama salesman ini sudah terdaftar!');
+          return;
+        }
+        salesmen.push(payload);
+      }
+
+      saveState();
+      closeSalesmanModal();
+      populateSalesmenSelectors();
+      renderKelolaSalesman();
+      alert('Data salesman berhasil disimpan!');
+    };
+  }
+
+
+  // ════════════════════════════════════════
+  // NEW VIEW: SALES ORDER SYSTEM
+  // ════════════════════════════════════════
+  function renderSalesOrderModule() {
+    renderOrderCatalog();
+    renderShoppingCart();
+    renderOrdersListInflow();
+  }
+
+  // Stepper quantity selector Catalog
+  function renderOrderCatalog() {
+    const catalogContainer = document.getElementById('order-product-catalog');
+    if (!catalogContainer) return;
+    catalogContainer.innerHTML = '';
+
+    products.forEach(p => {
+      const currentCartQty = activeCart[p.code] || 0;
+      const currentStock = stockData[p.code] || 0;
+      const isLowStock = currentStock <= 10;
+      const lowStockClass = isLowStock ? 'opc-stock-tag low' : 'opc-stock-tag';
+
+      const card = document.createElement('div');
+      card.className = 'order-product-card';
+      card.innerHTML = `
+        <div class="${lowStockClass}">Stok: ${currentStock}</div>
+        <div class="opc-code">${p.code}</div>
+        <div class="opc-name">${p.name}</div>
+        <div class="opc-prices">
+          <div class="opc-price-line"><span>Cash:</span><strong>${formatIDR(p.cash_price)}</strong></div>
+          <div class="opc-price-line"><span>Tempo:</span><strong>${formatIDR(p.tempo_price)}</strong></div>
+        </div>
+        <div class="opc-qty-stepper">
+          <button class="stepper-btn btn-stepper-minus" data-code="${p.code}"><i data-lucide="minus" style="width:12px;height:12px;"></i></button>
+          <span class="stepper-val" id="stepper-val-${p.code}">${currentCartQty}</span>
+          <button class="stepper-btn btn-stepper-plus" data-code="${p.code}"><i data-lucide="plus" style="width:12px;height:12px;"></i></button>
+        </div>
+      `;
+      catalogContainer.appendChild(card);
+    });
+
+    lucide.createIcons();
+    setupOrderStepperClickHandlers();
+  }
+
+  function setupOrderStepperClickHandlers() {
+    document.querySelectorAll('.btn-stepper-plus').forEach(btn => {
+      btn.onclick = () => {
+        const code = btn.getAttribute('data-code');
+        const currentStock = stockData[code] || 0;
+        const currentCartQty = activeCart[code] || 0;
+        
+        if (currentCartQty + 1 > currentStock) {
+          alert('Stok gudang tidak mencukupi untuk jumlah ini!');
+          return;
+        }
+
+        activeCart[code] = currentCartQty + 1;
+        document.getElementById(`stepper-val-${code}`).textContent = activeCart[code];
+        renderShoppingCart();
+      };
+    });
+
+    document.querySelectorAll('.btn-stepper-minus').forEach(btn => {
+      btn.onclick = () => {
+        const code = btn.getAttribute('data-code');
+        const currentCartQty = activeCart[code] || 0;
+        
+        if (currentCartQty > 0) {
+          activeCart[code] = currentCartQty - 1;
+          if (activeCart[code] === 0) delete activeCart[code];
+          document.getElementById(`stepper-val-${code}`).textContent = activeCart[code] || 0;
+          renderShoppingCart();
+        }
+      };
+    });
+  }
+
+  // Renders the shopping cart
+  function renderShoppingCart() {
+    const container = document.getElementById('cart-items-container');
+    const paymentSelect = document.getElementById('order-payment-type');
+    const isTempo = paymentSelect ? paymentSelect.value === 'Tempo' : false;
+
+    if (!container) return;
+    container.innerHTML = '';
+
+    const selectedCodes = Object.keys(activeCart);
+
+    if (selectedCodes.length === 0) {
+      container.innerHTML = '<div class="empty-cart-text">Belum ada produk dipilih</div>';
+      document.getElementById('cart-total-qty').textContent = '0 krat';
+      document.getElementById('cart-total-rp').textContent = 'Rp 0';
+      return;
+    }
+
+    let totalVolume = 0;
+    let totalNominal = 0;
+
+    selectedCodes.forEach(code => {
+      const p = products.find(x => x.code === code);
+      if (!p) return;
+      
+      const qty = activeCart[code];
+      const price = isTempo ? p.tempo_price : p.cash_price;
+      const subtotal = qty * price;
+      
+      totalVolume += qty;
+      totalNominal += subtotal;
+
+      const item = document.createElement('div');
+      item.className = 'cart-item-row';
+      item.innerHTML = `
+        <div class="cart-item-info">
+          <span class="cart-item-name">${p.code} (${qty} krat)</span>
+          <span class="cart-item-price-desc">${qty} x ${formatIDR(price)}</span>
+        </div>
+        <span class="cart-item-total">${formatIDR(subtotal)}</span>
+      `;
+      container.appendChild(item);
+    });
+
+    document.getElementById('cart-total-qty').textContent = `${totalVolume} krat`;
+    document.getElementById('cart-total-rp').textContent = formatIDR(totalNominal);
+  }
+
+  const orderPaymentSelect = document.getElementById('order-payment-type');
+  if (orderPaymentSelect) {
+    orderPaymentSelect.onchange = renderShoppingCart;
+  }
+
+  // Reset Shopping Cart
+  const btnClearCart = document.getElementById('btn-clear-cart');
+  if (btnClearCart) {
+    btnClearCart.onclick = () => {
+      activeCart = {};
+      renderOrderCatalog();
+      renderShoppingCart();
+    };
+  }
+
+  // Checkout order form submit + WA send
+  const orderCheckoutForm = document.getElementById('order-checkout-form');
+  if (orderCheckoutForm) {
+    orderCheckoutForm.onsubmit = (e) => {
+      e.preventDefault();
+
+      const selectedCodes = Object.keys(activeCart);
+      if (selectedCodes.length === 0) {
+        alert('Tolong pilih produk terlebih dahulu!');
+        return;
+      }
+
+      const salesmanName = document.getElementById('order-salesman').value;
+      const shopName = document.getElementById('order-shop-name').value.trim().toUpperCase();
+      const shopAddress = document.getElementById('order-shop-address').value.trim();
+      const shopPhone = document.getElementById('order-shop-phone').value.trim();
+      const paymentType = document.getElementById('order-payment-type').value;
+
+      const sObj = salesmen.find(x => x.name.toLowerCase() === salesmanName.toLowerCase());
+      const sellerPhone = sObj ? sObj.phone : '628123456789';
+
+      const items = [];
+      let totalVolume = 0;
+      let totalNominal = 0;
+
+      selectedCodes.forEach(code => {
+        const p = products.find(x => x.code === code);
+        const qty = activeCart[code];
+        const price = paymentType === 'Tempo' ? p.tempo_price : p.cash_price;
+        const nominal = qty * price;
+        
+        totalVolume += qty;
+        totalNominal += nominal;
+        
+        items.push({
+          product_code: code,
+          product_name: p.name,
+          qty,
+          price,
+          nominal
+        });
+      });
+
+      const newOrder = {
+        id: 'ORD_' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        date: new Date().toISOString().split('T')[0],
+        salesman: salesmanName,
+        customer: shopName,
+        customer_address: shopAddress,
+        customer_phone: shopPhone,
+        payment_type: paymentType,
+        items,
+        total_qty: totalVolume,
+        total_nominal: totalNominal,
+        status: 'Pending' // Pending -> Confirmed -> Shipped
+      };
+
+      salesOrders.unshift(newOrder);
+      saveState();
+
+      // BUILD WHATSAPP FORMATTED MESSAGE LINK
+      let waMessage = `*GAJAH MAS SALES ORDER*\n`;
+      waMessage += `=========================\n`;
+      waMessage += `*Sales:* ${salesmanName}\n`;
+      waMessage += `*Toko:* ${shopName}\n`;
+      waMessage += `*Alamat:* ${shopAddress}\n`;
+      waMessage += `*No HP:* ${shopPhone}\n`;
+      waMessage += `*Metode Bayar:* ${paymentType}\n`;
+      waMessage += `-------------------------\n`;
+      items.forEach(item => {
+        waMessage += `- ${item.product_code} (${item.qty} krat) x ${formatIDR(item.price)} = ${formatIDR(item.nominal)}\n`;
+      });
+      waMessage += `-------------------------\n`;
+      waMessage += `*TOTAL VOLUME:* ${totalVolume} krat\n`;
+      waMessage += `*TOTAL BAYAR:* ${formatIDR(totalNominal)}\n`;
+      waMessage += `=========================\n`;
+      waMessage += `Order tersimpan lokal di HP. Mohon admin memeriksa faktur komputer.`;
+
+      // Open WhatsApp API
+      const waUrl = `https://api.whatsapp.com/send?phone=${sellerPhone}&text=${encodeURIComponent(waMessage)}`;
+      window.open(waUrl, '_blank');
+
+      alert('Order berhasil dibuat dan disimpan! Membuka WhatsApp untuk kirim order ke admin...');
+      
+      // Reset
+      activeCart = {};
+      orderCheckoutForm.reset();
+      renderSalesOrderModule();
+    };
+  }
+
+  // Renders the WA order inflow registry
+  function renderOrdersListInflow() {
+    const tbody = document.getElementById('orders-list-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (salesOrders.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Belum ada order masuk tercatat.</td></tr>';
+      return;
+    }
+
+    salesOrders.forEach(o => {
+      const tr = document.createElement('tr');
+      
+      let statusBadgeClass = 'status-pending';
+      let statusLabel = 'ORDER MASUK';
+      if (o.status === 'Confirmed') {
+        statusBadgeClass = 'status-confirmed';
+        statusLabel = 'FAKTUR KONFIRMASI';
+      } else if (o.status === 'Shipped') {
+        statusBadgeClass = 'status-shipped';
+        statusLabel = 'BARANG KELUAR';
+      }
+
+      tr.innerHTML = `
+        <td data-label="Tanggal Order">${new Date(o.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+        <td data-label="Salesman"><b>${o.salesman}</b></td>
+        <td data-label="Nama Toko">${o.customer}</td>
+        <td data-label="Total Item">${o.total_qty} krat</td>
+        <td data-label="Total Nominal" style="font-weight: 700; color: var(--accent);">${formatIDR(o.total_nominal)}</td>
+        <td data-label="Status Alur"><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
+        <td data-label="Aksi" style="text-align: center;">
+          <button class="btn btn-secondary btn-order-detail" data-id="${o.id}" style="padding: 0.25rem 0.5rem; min-height: 24px; font-size: .65rem;"><i data-lucide="eye" style="width:12px;height:12px;"></i> Detail</button>
+          <button class="btn btn-ghost btn-order-delete admin-only" data-id="${o.id}" style="color: var(--red); padding: 2px; display: ${activeRole === 'admin' ? '' : 'none'};"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+    setupOrderInflowClickHandlers();
+  }
+
+  function setupOrderInflowClickHandlers() {
+    document.querySelectorAll('.btn-order-detail').forEach(btn => {
+      btn.onclick = () => {
+        openOrderDetailModal(btn.getAttribute('data-id'));
+      };
+    });
+
+    document.querySelectorAll('.btn-order-delete').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        if (confirm('Hapus rekap data order ini?')) {
+          salesOrders = salesOrders.filter(x => x.id !== id);
+          saveState();
+          renderOrdersListInflow();
+        }
+      };
+    });
+  }
+
+  // Invoice modal print bindings
+  const orderDetailModal = document.getElementById('order-detail-modal');
+  let currentViewingOrderId = null;
+
+  function openOrderDetailModal(orderId) {
+    const o = salesOrders.find(x => x.id === orderId);
+    if (!o || !orderDetailModal) return;
+
+    currentViewingOrderId = orderId;
+    orderDetailModal.classList.add('active');
+
+    document.getElementById('inv-id').textContent = o.id;
+    document.getElementById('inv-date').textContent = o.date;
+    document.getElementById('inv-sales-name').textContent = o.salesman;
+    document.getElementById('inv-shop-name').textContent = o.customer;
+    document.getElementById('inv-shop-address').textContent = o.customer_address;
+    document.getElementById('inv-shop-phone').textContent = o.customer_phone;
+    
+    const itemsTbody = document.getElementById('invoice-items-body');
+    itemsTbody.innerHTML = '';
+
+    o.items.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding: .4rem 0;">${item.product_code} - ${item.product_name}</td>
+        <td style="padding: .4rem 0; text-align: center;">${item.qty}</td>
+        <td style="padding: .4rem 0; text-align: right;">${formatIDR(item.price)}</td>
+        <td style="padding: .4rem 0; text-align: right;"><strong>${formatIDR(item.nominal)}</strong></td>
+      `;
+      itemsTbody.appendChild(tr);
+    });
+
+    document.getElementById('inv-total-qty').textContent = `${o.total_qty} krat`;
+    document.getElementById('inv-pay-type').textContent = o.payment_type;
+    document.getElementById('inv-total-rp').textContent = formatIDR(o.total_nominal);
+
+    // Apply Admin ship processing visibility button
+    const shipBtn = document.getElementById('btn-confirm-barang-keluar');
+    if (shipBtn) {
+      if (activeRole === 'admin' && o.status !== 'Shipped') {
+        shipBtn.style.display = '';
+      } else {
+        shipBtn.style.display = 'none';
+      }
+    }
+  }
+
+  function closeOrderDetailModal() {
+    if (orderDetailModal) orderDetailModal.classList.remove('active');
+  }
+
+  const btnCloseOrderM = document.getElementById('btn-close-order-detail-modal');
+  if (btnCloseOrderM) btnCloseOrderM.onclick = closeOrderDetailModal;
+  const btnCancelOrderM = document.getElementById('btn-cancel-order-detail-modal');
+  if (btnCancelOrderM) btnCancelOrderM.onclick = closeOrderDetailModal;
+
+  // Print invoice faktur
+  const btnPrintFaktur = document.getElementById('btn-print-order-faktur');
+  if (btnPrintFaktur) {
+    btnPrintFaktur.onclick = () => {
+      // Mark as Confirmed on print
+      const o = salesOrders.find(x => x.id === currentViewingOrderId);
+      if (o && o.status === 'Pending') {
+        o.status = 'Confirmed';
+        saveState();
+        renderOrdersListInflow();
+      }
+      // Activate invoice-only print mode
+      document.body.classList.add('print-invoice-mode');
+      setTimeout(() => {
+        window.print();
+        // Clean up after print dialog closes
+        document.body.classList.remove('print-invoice-mode');
+      }, 100);
+    };
+  }
+
+  // Shipping barang keluar decrement stock
+  const btnShipBarangKeluar = document.getElementById('btn-confirm-barang-keluar');
+  if (btnShipBarangKeluar) {
+    btnShipBarangKeluar.onclick = () => {
+      const o = salesOrders.find(x => x.id === currentViewingOrderId);
+      if (!o) return;
+
+      if (o.status === 'Shipped') {
+        alert('Barang untuk order ini sudah diproses keluar!');
+        return;
+      }
+
+      // Check stocks availability
+      let stockSufficient = true;
+      let insufficientItem = '';
+
+      o.items.forEach(item => {
+        const currentStock = stockData[item.product_code] || 0;
+        if (currentStock < item.qty) {
+          stockSufficient = false;
+          insufficientItem = item.product_code;
+        }
+      });
+
+      if (!stockSufficient) {
+        alert(`Gagal memproses! Stok produk ${insufficientItem} di gudang tidak mencukupi.`);
+        return;
+      }
+
+      if (confirm(`Apakah Anda yakin ingin memproses Barang Keluar? Stok produk di gudang akan otomatis berkurang.`)) {
+        // Deduct Stocks
+        o.items.forEach(item => {
+          stockData[item.product_code] -= item.qty;
+        });
+
+        // Insert into official Gajah Mas main transaction registry
+        o.items.forEach(item => {
+          transactions.unshift({
+            id: 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9),
+            salesman: o.salesman,
+            date: o.date,
+            customer: o.customer,
+            product_name: item.product_name,
+            product_code: item.product_code,
+            qty: item.qty,
+            price: item.price,
+            nominal: item.nominal,
+            payment_type: o.payment_type
+          });
+        });
+
+        o.status = 'Shipped';
+        saveState();
+        closeOrderDetailModal();
+        renderOrdersListInflow();
+        alert('Sukses! Barang Keluar berhasil dikirim, stok terpotong, dan transaksi rekap otomatis diinput ke database harian.');
+      }
+    };
+  }
+
+
+  // ════════════════════════════════════════
+  // BOOTSTRAP INITIALIZATION
   // ════════════════════════════════════════
   function initApp() {
     if (activeRole) {
       viewLogin.style.display = 'none';
       appShell.style.display = 'flex';
       applyRoleUI();
+      populateSalesmenSelectors();
       
-      // Ensure we navigate to a valid route for the new role if on an invalid one
+      // Ensure role fits active routing path
       const hash = window.location.hash;
       if (activeRole === 'admin' && (hash === '#/' || hash === '')) {
          window.location.hash = '#/sales/seller/Jossy';
-      } else if (activeRole === 'owner' && (hash === '#/products' || hash === '#/daily_reports' || hash === '#/sales/new')) {
+      } else if (activeRole === 'owner' && (
+        hash === '#/products' || 
+        hash === '#/daily_reports' || 
+        hash === '#/sales/new' || 
+        hash === '#/kelola_sales'
+      )) {
          window.location.hash = '#/';
       } else {
         handleRoute();
@@ -1077,6 +2404,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       viewLogin.style.display = 'flex';
       appShell.style.display = 'none';
+      
+      // Clear PIN
+      currentPin = '';
+      pinInput.value = '';
     }
   }
 

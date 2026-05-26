@@ -1,0 +1,30 @@
+halaman paling awal janganlangsung lihat angka angka....contoh gambt ini....di klik baru terbuka angka angka sales.... 
+
+Di cards halaman awal per sales…missal JOSSY ada CASH Rp4.874899   di tambahin kata PROFIT CASH    PROFIT TEMPO
+Halaman data sudah okhalaman awal buka kurang
+Di cards sales CASH Rp9748…. ITU kata nya ditambah…jadi    PROFIT CASH……sebelahe PROFIT TEMPO
+di buat ada sidebar di kiri dengan menu menu
+
+Info rekenin (MANUAL INPUT)
+Tagihan Suplyer  (  MANUAL INPUT)
+Harga Produk  ( MANUAL INPUT)
+Stok ( SELANJUTNYA AKAN TERINTREGASI DENGAN APLIKASI DATA STOK GUDAN)
+Hari ini     (ISINYA PENJUALAN SALES HARI INI ,  UANG MASUK HARIAN )
+Di halaman Admin ada menu Sales…isinya Nama Sales No Hp…terus bisa ada sales baru inputnya bagaimana….jika sales keluar ..berarti kan diganti nama datanya
+
+DI FOOTER  tulisan ditambahin  Gajah Mas Sales Report System, by Nadiff &team@2026   kalau bisa di letakkan di tengah
+Masuk web tidak semua orang  bisa ..di buat pin…walaupun owner
+
+
+
+- SALES OREDER SYSTEM
+
+SALES KLIK KLIK PRODUK...JUMLAH NOMINAL OTOMATIS NAMPAK...,
+TULIS NAMA TOKO ALAMAT NO HP...SIMPAN DAN KIRIM , 
+DATA TERSIMPAN DI HP,,TERKIRIM JIKA ADA SINYA...,
+DATA DITERIMA ADMIN DI WA DAN APLIKASI ,KOMPUTER DAN HP.....,  
+ADMIN CEKING..KONFIRMASI JIKA PERLU...MASUKAN DATA ORDER KE FAKTUR KOMPUTER..PRINT......
+FAKTUR YG TELAH DI PPRINT DI SERAHKAN BAGIAN GUDANG ....
+BAGIAN GUDANG MENYERAHKAN BARANG UTK DIKIRIM......
+BAGIAN GUDANG INPUT BARANG KELUAR ..
+BANK DATA STOK DI ADMIN OTOMATIS BERKURANG.......

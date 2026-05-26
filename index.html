@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,38 +8,43 @@
   <title>Gajah Mas Sales System</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
 
   <!-- ══════════════════════════════════════
-       VIEW: LOGIN / ROLE SELECTION
+       VIEW: LOGIN / SECURE PIN SCREEN
   ══════════════════════════════════════ -->
   <div id="view-login" class="login-screen view-section active">
     <div class="login-card">
       <div class="login-logo">GM</div>
       <h1 class="login-title">Gajah Mas Sales System</h1>
-      <p class="login-subtitle">Pilih role Anda untuk melanjutkan</p>
+      <p class="login-subtitle">Masukkan PIN Otorisasi Anda</p>
 
-      <div class="role-options">
-        <button class="role-btn" data-role="owner" id="btn-role-owner">
-          <div class="role-icon owner"><i data-lucide="briefcase"></i></div>
-          <div>
-            <div class="role-name">Owner</div>
-            <div class="role-desc">Lihat performa & profit</div>
-          </div>
-        </button>
-        <button class="role-btn" data-role="admin" id="btn-role-admin">
-          <div class="role-icon admin"><i data-lucide="shield"></i></div>
-          <div>
-            <div class="role-name">Admin</div>
-            <div class="role-desc">Kelola data & laporan</div>
-          </div>
-        </button>
+      <div class="pin-input-container">
+        <input type="password" id="pin-input" class="form-control pin-field" maxlength="6" placeholder="******" readonly
+          autocomplete="off">
       </div>
 
-      <button class="btn-login" id="btn-login-submit" disabled>
-        Masuk <i data-lucide="arrow-right"></i>
-      </button>
-      <p class="login-note">Sistem otorisasi tanpa password untuk kemudahan akses (Demo)</p>
+      <div class="pin-grid">
+        <button class="pin-key" data-val="1">1</button>
+        <button class="pin-key" data-val="2">2</button>
+        <button class="pin-key" data-val="3">3</button>
+        <button class="pin-key" data-val="4">4</button>
+        <button class="pin-key" data-val="5">5</button>
+        <button class="pin-key" data-val="6">6</button>
+        <button class="pin-key" data-val="7">7</button>
+        <button class="pin-key" data-val="8">8</button>
+        <button class="pin-key" data-val="9">9</button>
+        <button class="pin-key fn-key" id="btn-pin-clear"><i data-lucide="delete"></i></button>
+        <button class="pin-key" data-val="0">0</button>
+        <button class="pin-key fn-key" id="btn-pin-enter"><i data-lucide="arrow-right"></i></button>
+      </div>
+
+      <div id="pin-error-msg" class="pin-error" style="display: none;">
+        <i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> PIN Salah! Silakan coba lagi.
+      </div>
+
+      <p class="login-note">Gajah Mas Sales Report System. Secure PIN Access.</p>
     </div>
   </div>
 
@@ -47,365 +53,937 @@
   ══════════════════════════════════════ -->
   <div id="app-shell" class="app-shell" style="display: none;">
 
-    <!-- TOPBAR -->
-    <header class="topbar">
-      <div class="topbar-brand">
-        <div class="topbar-logo">GM</div>
-        <div class="topbar-title">Gajah Mas</div>
+    <!-- LEFT SIDEBAR -->
+    <aside class="app-sidebar" id="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-logo">GM</div>
+        <div class="sidebar-title">Gajah Mas</div>
       </div>
-      
-      <div class="topbar-divider"></div>
 
-      <!-- Desktop Nav -->
-      <nav class="topbar-nav" id="global-nav">
-        <a href="#/" class="tab-link owner-only" data-view="dashboard" id="nav-dashboard">
-          <i data-lucide="layout-dashboard"></i> Dashboard
+      <div class="sidebar-role-panel">
+        <div class="role-avatar" id="sidebar-role-avatar">O</div>
+        <div class="role-details">
+          <span class="role-name-text" id="sidebar-role-name">Owner</span>
+          <span class="role-status-badge"><span class="role-dot" id="sidebar-role-dot"></span> Online</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#/" class="sidebar-link owner-only" id="side-dashboard">
+          <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
         </a>
-        <a href="#/sales/seller/Jossy" class="tab-link" data-view="seller-detail" id="nav-seller">
-          <i data-lucide="bar-chart-2"></i> Data Transaksi
+        <a href="#/sales/seller/Jossy" class="sidebar-link" id="side-seller">
+          <i data-lucide="bar-chart-2"></i> <span>Data Transaksi</span>
         </a>
-        <a href="#/products" class="tab-link admin-only" data-view="products" id="nav-products">
-          <i data-lucide="package"></i> Produk
+        <a href="#/sales/order" class="sidebar-link" id="side-sales-order">
+          <i data-lucide="shopping-cart"></i> <span>Sales Order</span>
         </a>
-        <a href="#/daily_reports" class="tab-link admin-only" data-view="daily-reports" id="nav-reports">
-          <i data-lucide="upload-cloud"></i> Upload
+        <a href="#/hari_ini" class="sidebar-link" id="side-hari-ini">
+          <i data-lucide="calendar"></i> <span>Laporan Hari Ini</span>
         </a>
-        <a href="#/sales/new" class="tab-link admin-only" data-view="new-sale" id="nav-new-sale">
-          <i data-lucide="plus-circle"></i> Input Manual
+        <a href="#/info_rekening" class="sidebar-link" id="side-rekening">
+          <i data-lucide="wallet"></i> <span>Info Rekening</span>
+        </a>
+        <a href="#/tagihan_supplier" class="sidebar-link" id="side-tagihan">
+          <i data-lucide="receipt"></i> <span>Tagihan Supplier</span>
+        </a>
+        <a href="#/harga_produk" class="sidebar-link" id="side-harga-produk">
+          <i data-lucide="tags"></i> <span>Harga Produk</span>
+        </a>
+        <a href="#/stok" class="sidebar-link" id="side-stok">
+          <i data-lucide="archive"></i> <span>Stok Gudang</span>
+        </a>
+        <a href="#/kelola_sales" class="sidebar-link admin-only" id="side-kelola-sales">
+          <i data-lucide="users"></i> <span>Kelola Sales</span>
+        </a>
+        <a href="#/products" class="sidebar-link admin-only" id="side-products">
+          <i data-lucide="package"></i> <span>Produk Catalog</span>
+        </a>
+        <a href="#/daily_reports" class="sidebar-link admin-only" id="side-reports">
+          <i data-lucide="upload-cloud"></i> <span>Upload Rekap</span>
+        </a>
+        <a href="#/sales/new" class="sidebar-link admin-only" id="side-new-sale">
+          <i data-lucide="plus-circle"></i> <span>Input Manual</span>
         </a>
       </nav>
 
-      <div class="topbar-spacer"></div>
+      <div class="sidebar-footer">
+        <button class="btn btn-secondary btn-logout" id="sidebar-logout-btn" style="width: 100%;">
+          <i data-lucide="log-out"></i> Keluar
+        </button>
+      </div>
+    </aside>
 
-      <button class="role-badge" id="btn-change-role" title="Ganti Role">
-        <div class="dot" id="active-role-dot"></div>
-        <span id="active-role-text">Role</span>
-        <i data-lucide="chevron-down" style="width: 12px; height: 12px; margin-left: 2px;"></i>
-      </button>
-    </header>
+    <!-- CONTENT WRAPPER -->
+    <div class="app-content-wrapper">
 
-    <!-- MAIN CONTENT -->
-    <main class="app-main" id="app-main">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <button class="sidebar-toggle-btn" id="sidebar-toggle-btn">
+          <i data-lucide="menu"></i>
+        </button>
 
-      <!-- ── VIEW: DASHBOARD (Owner Only) ── -->
-      <section id="view-dashboard" class="view-section">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">Dashboard Performa</h2>
-            <p class="page-subtitle">Ringkasan penjualan harian (Mei 2026)</p>
-          </div>
+        <div class="topbar-brand-mobile">
+          <div class="topbar-logo">GM</div>
+          <div class="topbar-title">Gajah Mas</div>
         </div>
 
-        <div class="metrics-grid">
-          <div class="metric-card cash">
-            <div class="metric-label">Omset Cash</div>
-            <div class="metric-value large" id="dash-val-cash">Rp 0</div>
-            <div class="metric-sub"><b id="dash-qty-cash">0</b> krat (<span id="dash-pct-qty-cash">0%</span> vol)</div>
-            <div class="metric-icon"><i data-lucide="banknote"></i></div>
-          </div>
-          <div class="metric-card tempo">
-            <div class="metric-label">Omset Tempo</div>
-            <div class="metric-value large" id="dash-val-tempo">Rp 0</div>
-            <div class="metric-sub"><b id="dash-qty-tempo">0</b> krat (<span id="dash-pct-qty-tempo">0%</span> vol)</div>
-            <div class="metric-icon"><i data-lucide="credit-card"></i></div>
-          </div>
-          <div class="metric-card profit">
-            <div class="metric-label">Total Profit</div>
-            <div class="metric-value large" id="dash-total-profit">Rp 0</div>
-            <div class="metric-sub">Cash: <b id="dash-sub-profit-cash">Rp 0</b> | Tempo: <b id="dash-sub-profit-tempo">Rp 0</b></div>
-            <div class="metric-icon"><i data-lucide="trending-up"></i></div>
-          </div>
-        </div>
+        <div class="topbar-spacer"></div>
 
-        <div class="page-header" style="margin-top: 1.5rem;">
-          <h2 class="page-title">Performa Salesman</h2>
-        </div>
-        <div class="salesmen-grid" id="dash-salesmen-cards">
-          <!-- Populated via JS -->
-        </div>
+        <button class="role-badge" id="btn-change-role" title="Keluar / Kunci">
+          <div class="dot" id="active-role-dot"></div>
+          <span id="active-role-text">Role</span>
+          <i data-lucide="log-out" style="width: 12px; height: 12px; margin-left: 4px;"></i>
+        </button>
+      </header>
 
-      </section>
+      <!-- MAIN CONTENT -->
+      <main class="app-main" id="app-main">
 
-      <!-- ── VIEW: SELLER DETAIL / DATA TRANSAKSI (Owner & Admin) ── -->
-      <section id="view-seller-detail" class="view-section">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">Data Transaksi & Laporan</h2>
-            <p class="page-subtitle">Rincian penjualan per salesman</p>
-          </div>
-          <div class="seller-select-wrap">
-            <span class="seller-select-label">Salesman:</span>
-            <select class="form-control" id="seller-select-control" style="min-width: 140px;">
-              <option value="Jossy">Jossy</option>
-              <option value="Raju">Raju</option>
-              <option value="Hafid">Hafid</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Profit Cards (Owner Only) -->
-        <div class="profit-split-grid owner-only" id="seller-profit-detail">
-           <!-- Populated via JS -->
-        </div>
-
-        <!-- Filter Bar -->
-        <div class="filter-bar">
-          <div class="filter-group">
-            <label class="filter-label">Mulai</label>
-            <input type="date" class="filter-control" id="filter-date-start">
-          </div>
-          <div class="filter-group">
-            <label class="filter-label">Selesai</label>
-            <input type="date" class="filter-control" id="filter-date-end">
-          </div>
-          <div class="filter-group">
-            <label class="filter-label">Produk</label>
-            <select class="filter-control" id="filter-product">
-              <option value="ALL">Semua Produk</option>
-              <option value="FB200">FB200</option>
-              <option value="FB400">FB400</option>
-              <option value="FB800">FB800</option>
-            </select>
-          </div>
-          <div class="filter-group">
-            <label class="filter-label">Pembayaran</label>
-            <select class="filter-control" id="filter-payment">
-              <option value="ALL">Semua</option>
-              <option value="Cash">Cash</option>
-              <option value="Tempo">Tempo</option>
-            </select>
-          </div>
-          <div class="filter-group" style="flex: 2;">
-            <label class="filter-label">Customer</label>
-            <input type="text" class="filter-control" id="filter-customer" placeholder="Cari nama...">
-          </div>
-          <button class="btn btn-secondary" id="btn-reset-filters" style="height: 34px;"><i data-lucide="refresh-cw"></i></button>
-        </div>
-
-        <!-- Tabel Rincian -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">Rincian Transaksi</div>
-            <div class="btn-row">
-              <a href="#/sales/new" class="btn btn-primary admin-only"><i data-lucide="plus-circle"></i> Tambah</a>
-              <button class="btn btn-success admin-only" id="btn-export-excel"><i data-lucide="download"></i> Export Excel</button>
-              <button class="btn btn-secondary" id="btn-print-pdf"><i data-lucide="printer"></i> Cetak</button>
+        <!-- ── VIEW 1: DASHBOARD (Owner Only) ── -->
+        <section id="view-dashboard" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Dashboard Performa</h2>
+              <p class="page-subtitle">Ringkasan penjualan harian (Mei 2026)</p>
             </div>
           </div>
-          <div class="print-header">
-            <h2 style="font-size: 1.1rem;">Laporan Penjualan – Gajah Mas</h2>
-            <p style="font-size: .75rem; color: #555;">Dicetak: <span id="print-date"></span></p>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Tanggal</th>
-                  <th>Customer</th>
-                  <th>Produk</th>
-                  <th>Qty</th>
-                  <th>Harga</th>
-                  <th>Nominal</th>
-                  <th>Pembayaran</th>
-                  <th class="admin-only" style="text-align: center;">Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="seller-daily-table-body"></tbody>
-            </table>
-          </div>
-        </div>
 
-        <!-- Tabel Produk (Owner Only) -->
-        <div class="panel owner-only">
-          <div class="panel-header">
-            <div class="panel-title">Ringkasan Per Produk</div>
+          <!-- Lock Overlay -->
+          <div id="dashboard-lock-overlay" class="dashboard-lock-overlay">
+            <div class="lock-overlay-content">
+              <div class="lock-icon-wrap"><i data-lucide="lock"></i></div>
+              <h3 class="lock-title">Ringkasan Angka Penjualan Terkunci</h3>
+              <p class="lock-desc">Klik tombol di bawah untuk menampilkan performa dan rincian profit sales.</p>
+              <button class="btn btn-primary btn-unlock" id="btn-unlock-dashboard">
+                <i data-lucide="unlock"></i> Buka Laporan Penjualan
+              </button>
+            </div>
           </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Produk</th>
-                  <th>Cash Qty</th>
-                  <th>Cash Rp</th>
-                  <th>Tempo Qty</th>
-                  <th>Tempo Rp</th>
-                  <th>Total Qty</th>
-                  <th>Total Nominal</th>
-                </tr>
-              </thead>
-              <tbody id="seller-product-table-body"></tbody>
-            </table>
-          </div>
-        </div>
 
-      </section>
-
-      <!-- ── VIEW: PRODUCTS (Admin Only) ── -->
-      <section id="view-products" class="view-section">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">Manajemen Produk</h2>
-            <p class="page-subtitle">Kelola daftar harga dan produk</p>
-          </div>
-          <button class="btn btn-primary" id="btn-new-product"><i data-lucide="plus"></i> Tambah Produk</button>
-        </div>
-        <div class="product-list" id="products-list-container"></div>
-      </section>
-
-      <!-- ── VIEW: UPLOAD EXCEL (Admin Only) ── -->
-      <section id="view-daily-reports" class="view-section">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">Upload Rekap Harian</h2>
-            <p class="page-subtitle">Impor data massal dari format Excel (.xlsx)</p>
-          </div>
-        </div>
-
-        <div class="upload-zone" id="excel-drop-zone">
-          <input type="file" id="excel-file-input" accept=".xlsx" style="display:none">
-          <div class="upload-icon-wrap"><i data-lucide="upload-cloud"></i></div>
-          <div class="upload-h">Seret & Lepaskan File Excel</div>
-          <div class="upload-sub">Atau klik untuk menelusuri file</div>
-          <div class="upload-tags">
-            <span class="upload-tag" id="chk-sheet"><i data-lucide="check" style="width:10px;height:10px;"></i> Sheets: JOSSY, RAJU, HAFID</span>
-            <span class="upload-tag" id="chk-cols"><i data-lucide="check" style="width:10px;height:10px;"></i> Format Sesuai</span>
-          </div>
-        </div>
-
-        <div id="upload-preview-area" style="display: none;">
-          <div class="alert alert-success">
-            <i data-lucide="check-circle"></i> File siap diproses. Silakan tinjau data di bawah.
-          </div>
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title" id="preview-data-title">Pratinjau</div>
-              <div class="btn-row">
-                <button class="btn btn-secondary" id="btn-cancel-upload">Batal</button>
-                <button class="btn btn-success" id="btn-commit-upload"><i data-lucide="save"></i> Simpan Data</button>
+          <!-- Unlocked Dashboard metrics -->
+          <div id="dashboard-unlocked-content" class="dashboard-unlocked-content blurred">
+            <div class="metrics-grid">
+              <div class="metric-card cash">
+                <div class="metric-label">Omset Cash</div>
+                <div class="metric-value large" id="dash-val-cash">Rp 0</div>
+                <div class="metric-sub"><b id="dash-qty-cash">0</b> krat (<span id="dash-pct-qty-cash">0%</span> vol)
+                </div>
+                <div class="metric-icon"><i data-lucide="banknote"></i></div>
+              </div>
+              <div class="metric-card tempo">
+                <div class="metric-label">Omset Tempo</div>
+                <div class="metric-value large" id="dash-val-tempo">Rp 0</div>
+                <div class="metric-sub"><b id="dash-qty-tempo">0</b> krat (<span id="dash-pct-qty-tempo">0%</span> vol)
+                </div>
+                <div class="metric-icon"><i data-lucide="credit-card"></i></div>
+              </div>
+              <div class="metric-card profit">
+                <div class="metric-label">Total Profit</div>
+                <div class="metric-value large" id="dash-total-profit">Rp 0</div>
+                <div class="metric-sub">Cash: <b id="dash-sub-profit-cash">Rp 0</b> | Tempo: <b
+                    id="dash-sub-profit-tempo">Rp 0</b></div>
+                <div class="metric-icon"><i data-lucide="trending-up"></i></div>
               </div>
             </div>
-            <div class="table-wrap" style="max-height: 400px;">
+
+            <div class="page-header" style="margin-top: 1.5rem;">
+              <h2 class="page-title">Performa Salesman</h2>
+            </div>
+            <div class="salesmen-grid" id="dash-salesmen-cards">
+              <!-- Populated via JS -->
+            </div>
+
+            <div class="panel" style="margin-top: 1.5rem;">
+              <div class="panel-header">
+                <div class="panel-title">Tabel Rincian Volume Transaksi Sales</div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Salesman</th>
+                      <th>Cash Transactions</th>
+                      <th>Tempo Transactions</th>
+                      <th>Total Transaksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-tx-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 2: SELLER DETAIL / DATA TRANSAKSI (Owner & Admin) ── -->
+        <section id="view-seller-detail" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Data Transaksi & Laporan</h2>
+              <p class="page-subtitle">Rincian penjualan per salesman</p>
+            </div>
+            <div class="seller-select-wrap">
+              <span class="seller-select-label">Salesman:</span>
+              <select class="form-control" id="seller-select-control" style="min-width: 140px;">
+                <!-- Dynamically filled -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Profit Cards (Owner Only) -->
+          <div class="profit-split-grid owner-only" id="seller-profit-detail">
+            <!-- Populated via JS -->
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label class="filter-label">Mulai</label>
+              <input type="date" class="filter-control" id="filter-date-start">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Selesai</label>
+              <input type="date" class="filter-control" id="filter-date-end">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Produk</label>
+              <select class="filter-control" id="filter-product">
+                <option value="ALL">Semua Produk</option>
+                <option value="FB200">FB200</option>
+                <option value="FB400">FB400</option>
+                <option value="FB800">FB800</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Pembayaran</label>
+              <select class="filter-control" id="filter-payment">
+                <option value="ALL">Semua</option>
+                <option value="Cash">Cash</option>
+                <option value="Tempo">Tempo</option>
+              </select>
+            </div>
+            <div class="filter-group" style="flex: 2;">
+              <label class="filter-label">Customer</label>
+              <input type="text" class="filter-control" id="filter-customer" placeholder="Cari nama...">
+            </div>
+            <button class="btn btn-secondary" id="btn-reset-filters" style="height: 34px;"><i
+                data-lucide="refresh-cw"></i></button>
+          </div>
+
+          <!-- Tabel Rincian -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Rincian Transaksi</div>
+              <div class="btn-row">
+                <a href="#/sales/new" class="btn btn-primary admin-only"><i data-lucide="plus-circle"></i> Tambah</a>
+                <button class="btn btn-success admin-only" id="btn-export-excel"><i data-lucide="download"></i> Export
+                  Excel</button>
+                <button class="btn btn-secondary" id="btn-print-pdf"><i data-lucide="printer"></i> Cetak</button>
+              </div>
+            </div>
+            <div class="print-header">
+              <h2 style="font-size: 1.1rem;">Laporan Penjualan – Gajah Mas</h2>
+              <p style="font-size: .75rem; color: #555;">Dicetak: <span id="print-date"></span></p>
+            </div>
+            <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Salesman</th><th>Tanggal</th><th>Customer</th><th>Produk</th>
-                    <th>Qty</th><th>Harga</th><th>Nominal</th><th>Pembayaran</th>
+                    <th>Tanggal</th>
+                    <th>Customer</th>
+                    <th>Produk</th>
+                    <th>Qty</th>
+                    <th>Harga</th>
+                    <th>Nominal</th>
+                    <th>Pembayaran</th>
+                    <th class="admin-only" style="text-align: center;">Aksi</th>
                   </tr>
                 </thead>
-                <tbody id="upload-preview-table-body"></tbody>
+                <tbody id="seller-daily-table-body"></tbody>
               </table>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- ── VIEW: MANUAL ADD SALE (Admin Only) ── -->
-      <section id="view-new-sale" class="view-section">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">Input Transaksi Manual</h2>
-            <p class="page-subtitle">Tambahkan transaksi satuan</p>
+          <!-- Tabel Ringkasan Produk (Owner Only) -->
+          <div class="panel owner-only">
+            <div class="panel-header">
+              <div class="panel-title">Ringkasan Per Produk</div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Produk</th>
+                    <th>Cash Qty</th>
+                    <th>Cash Rp</th>
+                    <th>Tempo Qty</th>
+                    <th>Tempo Rp</th>
+                    <th>Total Qty</th>
+                    <th>Total Nominal</th>
+                  </tr>
+                </thead>
+                <tbody id="seller-product-table-body"></tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="form-card" style="margin: 0 auto;">
-          <form id="manual-sale-form">
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">Salesman</label>
-                <select class="form-control" id="sale-salesman" required>
-                  <option value="" disabled selected>Pilih...</option>
-                  <option value="Jossy">Jossy</option>
-                  <option value="Raju">Raju</option>
-                  <option value="Hafid">Hafid</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Pembayaran</label>
-                <select class="form-control" id="sale-payment" required>
-                  <option value="Cash">Cash</option>
-                  <option value="Tempo">Tempo</option>
-                </select>
-              </div>
+        <!-- ── VIEW 3: SALES ORDER SYSTEM (All - offline + WA) ── -->
+        <section id="view-sales-order" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Sales Order System</h2>
+              <p class="page-subtitle">Sistem Input Pesanan Salesman Cepat (Mendukung Offline & WhatsApp)</p>
             </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">Tanggal</label>
-                <input type="date" class="form-control" id="sale-date" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Customer</label>
-                <input type="text" class="form-control" id="sale-customer" placeholder="Nama toko..." required>
-              </div>
-            </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">Produk</label>
-                <select class="form-control" id="sale-product" required>
-                  <option value="" disabled selected>Pilih...</option>
-                  <option value="FB200">FB200 (200ML)</option>
-                  <option value="FB400">FB400 (400ML)</option>
-                  <option value="FB800">FB800 (800ML)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty (Krat)</label>
-                <input type="number" class="form-control" id="sale-qty" min="1" required>
+          </div>
+
+          <div class="order-system-layout">
+            <!-- Left side: Product Selection Catalog -->
+            <div class="order-catalog-side">
+              <h3 class="section-title-premium"><i data-lucide="package"></i> Pilih Produk</h3>
+              <div class="order-product-grid" id="order-product-catalog">
+                <!-- Populated dynamically -->
               </div>
             </div>
 
-            <div class="calc-box">
-              <div class="calc-box-item">
-                <span class="calc-box-label">Harga Satuan</span>
-                <span class="calc-box-val accent" id="sale-price-display">Rp 0</span>
+            <!-- Right side: Shopping Cart & Checkout Form -->
+            <div class="order-checkout-side">
+              <h3 class="section-title-premium"><i data-lucide="shopping-cart"></i> Detail Pesanan</h3>
+              <div class="panel" style="padding: 1rem; margin-bottom: 1rem;">
+                <div class="cart-items-list" id="cart-items-container">
+                  <div class="empty-cart-text">Belum ada produk dipilih</div>
+                </div>
+                <div class="cart-summary-box">
+                  <div class="cs-row"><span>Total Volume</span><strong id="cart-total-qty">0 krat</strong></div>
+                  <div class="cs-row grand-total"><span>Total Nominal</span><strong id="cart-total-rp">Rp 0</strong>
+                  </div>
+                </div>
               </div>
-              <div class="calc-box-item" style="text-align: right;">
-                <span class="calc-box-label">Total Nominal</span>
-                <span class="calc-box-val green" id="sale-nominal-display">Rp 0</span>
+
+              <h3 class="section-title-premium"><i data-lucide="store"></i> Informasi Toko</h3>
+              <div class="form-card" style="width: 100%; max-width: 100%; padding: 1.25rem;">
+                <form id="order-checkout-form">
+                  <div class="form-group" style="margin-bottom: .75rem;">
+                    <label class="form-label">Salesman Penginput</label>
+                    <select class="form-control" id="order-salesman" required>
+                      <!-- Populated dynamically via JS -->
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: .75rem;">
+                    <label class="form-label">Nama Toko / Pelanggan</label>
+                    <input type="text" class="form-control" id="order-shop-name" placeholder="Contoh: Toko Barokah"
+                      required>
+                  </div>
+                  <div class="form-group" style="margin-bottom: .75rem;">
+                    <label class="form-label">Alamat Toko</label>
+                    <input type="text" class="form-control" id="order-shop-address"
+                      placeholder="Contoh: Jl. Diponegoro No. 12" required>
+                  </div>
+                  <div class="form-grid" style="margin-bottom: 1.25rem;">
+                    <div class="form-group">
+                      <label class="form-label">No WhatsApp Toko</label>
+                      <input type="text" class="form-control" id="order-shop-phone" placeholder="Contoh: 081234..."
+                        required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Metode Pembayaran</label>
+                      <select class="form-control" id="order-payment-type">
+                        <option value="Cash">Cash</option>
+                        <option value="Tempo">Tempo</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="btn-row">
+                    <button type="button" class="btn btn-secondary" id="btn-clear-cart" style="flex: 1;">Reset</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 2;"><i data-lucide="send"></i> Simpan &
+                      Kirim WA</button>
+                  </div>
+                </form>
               </div>
             </div>
+          </div>
 
-            <div class="btn-row" style="justify-content: flex-end;">
-              <button type="reset" class="btn btn-secondary" id="btn-reset-form">Reset</button>
-              <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Simpan Transaksi</button>
+          <!-- Orders Inflow Panel -->
+          <div class="panel" style="margin-top: 2rem;">
+            <div class="panel-header">
+              <div class="panel-title">Daftar Order Masuk (Sales Order Inflow)</div>
+              <div class="badge green" id="order-sync-badge"><i data-lucide="wifi"></i> Lokal Aktif</div>
             </div>
-          </form>
-        </div>
-      </section>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tanggal Order</th>
+                    <th>Salesman</th>
+                    <th>Nama Toko</th>
+                    <th>Total Item</th>
+                    <th>Total Nominal</th>
+                    <th>Status Alur</th>
+                    <th style="text-align: center;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="orders-list-table-body">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
-    </main>
+        <!-- ── VIEW 4: LAPORAN HARI INI (All) ── -->
+        <section id="view-hari-ini" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Laporan Penjualan Hari Ini</h2>
+              <p class="page-subtitle" id="hari-ini-subtitle">Rangkuman transaksi dan uang masuk per tanggal hari ini
+              </p>
+            </div>
+          </div>
 
-    <!-- FOOTER -->
-    <footer class="app-footer">
-      <div>Gajah Mas Sales System &copy; 2026</div>
-      <div>
-        <span class="badge green">Online</span>
-      </div>
-    </footer>
+          <div class="metrics-grid">
+            <div class="metric-card cash">
+              <div class="metric-label">Penjualan Hari Ini</div>
+              <div class="metric-value large" id="today-val-sales">Rp 0</div>
+              <div class="metric-sub"><b id="today-qty-sales">0</b> krat terjual</div>
+              <div class="metric-icon"><i data-lucide="shopping-bag"></i></div>
+            </div>
+            <div class="metric-card profit">
+              <div class="metric-label">Uang Masuk Harian (Cash)</div>
+              <div class="metric-value large" id="today-val-cash">Rp 0</div>
+              <div class="metric-sub">Uang Tunai terkumpul dari transaksi CASH</div>
+              <div class="metric-icon"><i data-lucide="banknote"></i></div>
+            </div>
+            <div class="metric-card tempo">
+              <div class="metric-label">Uang Masuk Harian (Tempo)</div>
+              <div class="metric-value large" id="today-val-tempo">Rp 0</div>
+              <div class="metric-sub">Tagihan berjalan dicatat</div>
+              <div class="metric-icon"><i data-lucide="credit-card"></i></div>
+            </div>
+          </div>
 
-    <!-- MOBILE BOTTOM NAV -->
-    <nav class="bottom-nav" id="mobile-nav">
-      <a href="#/" class="bottom-nav-link active owner-only" data-view="dashboard" id="mobnav-dashboard">
-        <i data-lucide="layout-dashboard"></i><span>Beranda</span>
-      </a>
-      <a href="#/sales/seller/Jossy" class="bottom-nav-link" data-view="seller-detail" id="mobnav-seller">
-        <i data-lucide="bar-chart-2"></i><span>Data</span>
-      </a>
-      <a href="#/products" class="bottom-nav-link admin-only" data-view="products" id="mobnav-products">
-        <i data-lucide="package"></i><span>Produk</span>
-      </a>
-      <a href="#/daily_reports" class="bottom-nav-link admin-only" data-view="daily-reports" id="mobnav-reports">
-        <i data-lucide="upload-cloud"></i><span>Upload</span>
-      </a>
-      <a href="#/sales/new" class="bottom-nav-link admin-only" data-view="new-sale" id="mobnav-new-sale">
-        <i data-lucide="plus-circle"></i><span>Input</span>
-      </a>
-    </nav>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Daftar Penjualan Hari Ini</div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Salesman</th>
+                    <th>Customer</th>
+                    <th>Produk</th>
+                    <th>Qty</th>
+                    <th>Harga</th>
+                    <th>Nominal</th>
+                    <th>Pembayaran</th>
+                  </tr>
+                </thead>
+                <tbody id="today-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 5: INFO REKENING (Manual Input) ── -->
+        <section id="view-info-rekening" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Informasi Rekening Bank</h2>
+              <p class="page-subtitle">Detail rekening pembayaran resmi Gajah Mas (Manual Input)</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Daftar Rekening Pembayaran</div>
+              <button class="btn btn-primary admin-only" id="btn-edit-bank"><i data-lucide="edit"></i> Edit
+                Rekening</button>
+            </div>
+            <div class="panel-body">
+              <div class="bank-cards-grid" id="bank-cards-container">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 6: TAGIHAN SUPPLIER (Manual Input) ── -->
+        <section id="view-tagihan-supplier" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Tagihan Supplier</h2>
+              <p class="page-subtitle">Kelola dan pantau tagihan supplier masuk (Manual Input)</p>
+            </div>
+            <button class="btn btn-primary admin-only" id="btn-new-tagihan"><i data-lucide="plus"></i> Tambah
+              Tagihan</button>
+          </div>
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nama Supplier</th>
+                    <th>Tanggal Tagihan</th>
+                    <th>Jatuh Tempo</th>
+                    <th>Nominal</th>
+                    <th>Status</th>
+                    <th class="admin-only" style="text-align: center;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="supplier-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 7: HARGA PRODUK (Manual Input) ── -->
+        <section id="view-harga-produk" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Harga Produk Resmi</h2>
+              <p class="page-subtitle">Daftar harga jual Cash & Tempo produk Gajah Mas</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Katalog Harga Produk</div>
+            </div>
+            <div class="panel-body">
+              <div class="product-price-grid" id="product-price-container">
+                <!-- Populated via JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 8: STOK GUDANG (Manual Input / Local integrated) ── -->
+        <section id="view-stok" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Stok Gudang</h2>
+              <p class="page-subtitle">Kelola dan pantau stok gudang Gajah Mas</p>
+            </div>
+            <button class="btn btn-primary admin-only" id="btn-add-stok-modal"><i data-lucide="plus"></i> Tambah
+              Stok</button>
+          </div>
+
+          <div class="alert alert-info">
+            <i data-lucide="info" style="width: 16px; height: 16px;"></i>
+            <div>
+              <strong style="font-size: .8rem;">SELANJUTNYA AKAN TERINTEGRASI DENGAN APLIKASI DATA STOK GUDANG</strong>
+              <p style="margin-top: .15rem; font-size: .68rem;">Saat ini berjalan dalam mode lokal. Stok barang akan
+                otomatis berkurang ketika pesanan diproses admin (Barang Keluar).</p>
+            </div>
+          </div>
+
+          <div class="metrics-grid" id="stok-metrics-container" style="margin-bottom: 1.5rem;">
+            <!-- Populated via JS -->
+          </div>
+        </section>
+
+        <!-- ── VIEW 9: KELOLA SALESMAN (Admin Only) ── -->
+        <section id="view-kelola-sales" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Kelola Data Salesman</h2>
+              <p class="page-subtitle">Daftar salesman Gajah Mas. Tambah baru atau ganti salesman yang keluar.</p>
+            </div>
+            <button class="btn btn-primary admin-only" id="btn-new-salesman"><i data-lucide="user-plus"></i> Tambah
+              Salesman</button>
+          </div>
+
+          <div class="panel">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nama Salesman</th>
+                    <th>No HP / WhatsApp</th>
+                    <th>Status</th>
+                    <th class="admin-only" style="text-align: center;">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="salesman-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 10: PRODUCTS CATALOG (Admin Only) ── -->
+        <section id="view-products" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Manajemen Produk</h2>
+              <p class="page-subtitle">Kelola daftar harga pokok dan jual produk</p>
+            </div>
+            <button class="btn btn-primary" id="btn-new-product"><i data-lucide="plus"></i> Tambah Produk</button>
+          </div>
+          <div class="product-list" id="products-list-container"></div>
+        </section>
+
+        <!-- ── VIEW 11: UPLOAD EXCEL (Admin Only) ── -->
+        <section id="view-daily-reports" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Upload Rekap Harian</h2>
+              <p class="page-subtitle">Impor data massal dari format Excel (.xlsx)</p>
+            </div>
+          </div>
+
+          <div class="upload-zone" id="excel-drop-zone">
+            <input type="file" id="excel-file-input" accept=".xlsx" style="display:none">
+            <div class="upload-icon-wrap"><i data-lucide="upload-cloud"></i></div>
+            <div class="upload-h">Seret & Lepaskan File Excel</div>
+            <div class="upload-sub">Atau klik untuk menelusuri file</div>
+            <div class="upload-tags">
+              <span class="upload-tag" id="chk-sheet"><i data-lucide="check" style="width:10px;height:10px;"></i> JOSSY,
+                RAJU, HAFID Sheets</span>
+              <span class="upload-tag" id="chk-cols"><i data-lucide="check" style="width:10px;height:10px;"></i> Kolom
+                Sesuai</span>
+            </div>
+          </div>
+
+          <div id="upload-preview-area" style="display: none;">
+            <div class="alert alert-success">
+              <i data-lucide="check-circle"></i> File siap diproses. Silakan tinjau data di bawah.
+            </div>
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title" id="preview-data-title">Pratinjau</div>
+                <div class="btn-row">
+                  <button class="btn btn-secondary" id="btn-cancel-upload">Batal</button>
+                  <button class="btn btn-success" id="btn-commit-upload"><i data-lucide="save"></i> Simpan Data</button>
+                </div>
+              </div>
+              <div class="table-wrap" style="max-height: 400px;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Salesman</th>
+                      <th>Tanggal</th>
+                      <th>Customer</th>
+                      <th>Produk</th>
+                      <th>Qty</th>
+                      <th>Harga</th>
+                      <th>Nominal</th>
+                      <th>Pembayaran</th>
+                    </tr>
+                  </thead>
+                  <tbody id="upload-preview-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW 12: MANUAL ADD TRANSAKSI (Admin Only) ── -->
+        <section id="view-new-sale" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Input Transaksi Manual</h2>
+              <p class="page-subtitle">Tambahkan data penjualan secara manual</p>
+            </div>
+          </div>
+
+          <div class="form-card" style="margin: 0 auto;">
+            <form id="manual-sale-form">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Salesman</label>
+                  <select class="form-control" id="sale-salesman" required>
+                    <!-- Dynamically filled -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Pembayaran</label>
+                  <select class="form-control" id="sale-payment" required>
+                    <option value="Cash">Cash</option>
+                    <option value="Tempo">Tempo</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Tanggal</label>
+                  <input type="date" class="form-control" id="sale-date" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Customer</label>
+                  <input type="text" class="form-control" id="sale-customer" placeholder="Nama toko..." required>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Produk</label>
+                  <select class="form-control" id="sale-product" required>
+                    <option value="" disabled selected>Pilih...</option>
+                    <option value="FB200">FB200 (200ML)</option>
+                    <option value="FB400">FB400 (400ML)</option>
+                    <option value="FB800">FB800 (800ML)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Qty (Krat)</label>
+                  <input type="number" class="form-control" id="sale-qty" min="1" required>
+                </div>
+              </div>
+
+              <div class="calc-box">
+                <div class="calc-box-item">
+                  <span class="calc-box-label">Harga Satuan</span>
+                  <span class="calc-box-val accent" id="sale-price-display">Rp 0</span>
+                </div>
+                <div class="calc-box-item" style="text-align: right;">
+                  <span class="calc-box-label">Total Nominal</span>
+                  <span class="calc-box-val green" id="sale-nominal-display">Rp 0</span>
+                </div>
+              </div>
+
+              <div class="btn-row" style="justify-content: flex-end;">
+                <button type="reset" class="btn btn-secondary" id="btn-reset-form">Reset</button>
+                <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Simpan Transaksi</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="app-footer">
+        <div style="width: 100%; text-align: center;">Gajah Mas Sales Report System, by Nadiff &team@2026</div>
+      </footer>
+
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════
        MODALS
   ══════════════════════════════════════ -->
+
+  <!-- Modal: Edit Info Rekening (Admin) -->
+  <div class="modal-backdrop" id="bank-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Edit Info Rekening</h3>
+        <button class="modal-close" id="btn-close-bank-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="bank-form">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Nama Bank</label>
+            <input type="text" class="form-control" id="bank-name-input" required>
+          </div>
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Nomor Rekening</label>
+            <input type="text" class="form-control" id="bank-number-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Atas Nama</label>
+            <input type="text" class="form-control" id="bank-holder-input" required>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-bank-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Supplier Bill (Admin) -->
+  <div class="modal-backdrop" id="supplier-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="supplier-modal-title">Tambah Tagihan</h3>
+        <button class="modal-close" id="btn-close-supplier-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="supplier-form">
+        <input type="hidden" id="supplier-edit-index">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Nama Supplier</label>
+            <input type="text" class="form-control" id="supplier-name-input" required>
+          </div>
+          <div class="form-grid" style="margin-bottom: .75rem;">
+            <div class="form-group">
+              <label class="form-label">Tanggal Tagihan</label>
+              <input type="date" class="form-control" id="supplier-date-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Jatuh Tempo</label>
+              <input type="date" class="form-control" id="supplier-due-input" required>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Nominal (Rp)</label>
+              <input type="number" class="form-control" id="supplier-amount-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select class="form-control" id="supplier-status-input">
+                <option value="Unpaid">Belum Lunas</option>
+                <option value="Paid">Lunas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-supplier-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Stok Restock (Admin) -->
+  <div class="modal-backdrop" id="stok-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Tambah Stok Produk</h3>
+        <button class="modal-close" id="btn-close-stok-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="stok-form">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Produk</label>
+            <select class="form-control" id="stok-product-input" required>
+              <option value="FB200">FB200 - FITRI BOTOL 200ML</option>
+              <option value="FB400">FB400 - FITRI BOTOL 400ML</option>
+              <option value="FB800">FB800 - FITRI BOTOL 800ML</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jumlah Krat Ditambahkan</label>
+            <input type="number" class="form-control" id="stok-qty-input" min="1" required>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-stok-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Tambah Stok</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Salesman CRUD (Admin) -->
+  <div class="modal-backdrop" id="salesman-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="salesman-modal-title">Tambah Salesman</h3>
+        <button class="modal-close" id="btn-close-salesman-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="salesman-form">
+        <input type="hidden" id="salesman-edit-index">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Nama Salesman</label>
+            <input type="text" class="form-control" id="salesman-name-input" placeholder="Contoh: Jossy" required>
+          </div>
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">No WhatsApp</label>
+            <input type="text" class="form-control" id="salesman-phone-input" placeholder="Contoh: 628123456789"
+              required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status Keaktifan</label>
+            <select class="form-control" id="salesman-status-input">
+              <option value="Active">Aktif</option>
+              <option value="Inactive">Keluar</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-salesman-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Detail / Faktur Order (Print Invoice) -->
+  <div class="modal-backdrop" id="order-detail-modal">
+    <div class="modal" style="max-width: 600px; width: 100%;">
+      <div class="modal-head no-print">
+        <h3>Faktur Penjualan (Order Detail)</h3>
+        <button class="modal-close" id="btn-close-order-detail-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="invoice-print-area">
+        <div class="invoice-header-box">
+          <div class="ih-left">
+            <h2>GAJAH MAS</h2>
+            <p>Sistem Laporan Penjualan & Distribusi</p>
+            <p>Telp: 0812-3456-7890</p>
+          </div>
+          <div class="ih-right" style="text-align: right;">
+            <h3>FAKTUR ORDER</h3>
+            <p style="font-size: .75rem;">ID: <span id="inv-id">ORD-XXXX</span></p>
+            <p style="font-size: .75rem;">Tanggal: <span id="inv-date">2026-05-27</span></p>
+          </div>
+        </div>
+        <hr class="invoice-divider" style="margin: .75rem 0; border: none; border-top: 2px solid #0f172a;">
+        <div class="invoice-client-box"
+          style="display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; font-size: .72rem;">
+          <div class="ic-group">
+            <strong>PENGIRIM (SALES):</strong>
+            <p id="inv-sales-name">Jossy</p>
+          </div>
+          <div class="ic-group" style="text-align: right;">
+            <strong>TOKO / PELANGGAN:</strong>
+            <p id="inv-shop-name">TOKO SEJAHTERA</p>
+            <p id="inv-shop-address">Jl. Pahlawan No. 45</p>
+            <p id="inv-shop-phone">08123456789</p>
+          </div>
+        </div>
+
+        <table class="invoice-table"
+          style="width:100%; border-collapse: collapse; font-size: .72rem; margin-bottom: 1rem;">
+          <thead>
+            <tr style="border-bottom: 2px solid #0f172a; text-align: left;">
+              <th style="padding: .4rem 0;">Produk</th>
+              <th style="padding: .4rem 0; text-align: center;">Qty (Krat)</th>
+              <th style="padding: .4rem 0; text-align: right;">Harga Satuan</th>
+              <th style="padding: .4rem 0; text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-items-body">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+
+        <div class="invoice-totals"
+          style="display: flex; flex-direction: column; align-items: flex-end; font-size: .72rem; margin-top: .75rem;">
+          <div class="it-row" style="margin-bottom: .2rem;"><span>Total Volume: </span><strong id="inv-total-qty">0
+              krat</strong></div>
+          <div class="it-row grand-rp" style="font-size: .88rem; border-top: 1px solid #0f172a; padding-top: .2rem;">
+            <span>Total Bayar (<span id="inv-pay-type">Cash</span>): </span><strong id="inv-total-rp">Rp 0</strong>
+          </div>
+        </div>
+
+        <div class="invoice-signatures"
+          style="display: flex; justify-content: space-between; margin-top: 2rem; font-size: .68rem;">
+          <div class="sig-box" style="width: 140px; text-align: center;">
+            <p>Tanda Terima,</p>
+            <br><br><br>
+            <p class="sig-line" style="border-top: 1px solid #777; padding-top: 4px;">( _________________ )</p>
+          </div>
+          <div class="sig-box" style="width: 140px; text-align: center;">
+            <p>Hormat Kami,</p>
+            <br><br><br>
+            <p class="sig-line" style="border-top: 1px solid #777; padding-top: 4px;">( _________________ )</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot no-print">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-order-detail-modal">Tutup</button>
+        <button type="button" class="btn btn-secondary" id="btn-print-order-faktur"><i data-lucide="printer"></i> Cetak
+          Faktur</button>
+        <button type="button" class="btn btn-success admin-only" id="btn-confirm-barang-keluar"><i
+            data-lucide="truck"></i> Barang Keluar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal: Edit/Tambah Produk (Admin) -->
   <div class="modal-backdrop" id="product-modal">
@@ -425,7 +1003,7 @@
             <label class="form-label">Nama Produk</label>
             <input type="text" class="form-control" id="prod-name" required>
           </div>
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom: .75rem;">
             <div class="form-group">
               <label class="form-label">Harga Beli</label>
               <input type="number" class="form-control" id="prod-buy-price" required>
@@ -478,7 +1056,8 @@
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-secondary" id="btn-cancel-export">Batal</button>
-        <button type="button" class="btn btn-success" id="btn-confirm-export"><i data-lucide="download"></i> Download</button>
+        <button type="button" class="btn btn-success" id="btn-confirm-export"><i data-lucide="download"></i>
+          Download</button>
       </div>
     </div>
   </div>
@@ -493,7 +1072,7 @@
       <form id="tx-edit-form">
         <input type="hidden" id="tx-edit-id">
         <div class="modal-body">
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom: .75rem;">
             <div class="form-group">
               <label class="form-label">Tanggal</label>
               <input type="date" class="form-control" id="tx-edit-date" required>
@@ -503,7 +1082,7 @@
               <input type="text" class="form-control" id="tx-edit-customer" required>
             </div>
           </div>
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom: .75rem;">
             <div class="form-group">
               <label class="form-label">Produk</label>
               <select class="form-control" id="tx-edit-product" required>
@@ -526,9 +1105,7 @@
             <div class="form-group">
               <label class="form-label">Salesman</label>
               <select class="form-control" id="tx-edit-salesman" required>
-                <option value="Jossy">Jossy</option>
-                <option value="Raju">Raju</option>
-                <option value="Hafid">Hafid</option>
+                <!-- Populated by JS -->
               </select>
             </div>
           </div>
@@ -545,8 +1122,7 @@
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="initial_data.js"></script>
   <script>
-    // Export Modal period logic
-    document.addEventListener('change', function(e) {
+    document.addEventListener('change', function (e) {
       if (e.target && e.target.id === 'export-periode-type') {
         const rangEl = document.getElementById('export-date-range');
         const val = e.target.value;
@@ -573,4 +1149,5 @@
   </script>
   <script src="app.js"></script>
 </body>
+
 </html>
