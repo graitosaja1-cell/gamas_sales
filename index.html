@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gajah Mas Sales Report System - Sistem laporan penjualan">
+  <title>Gajah Mas Sales System</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       VIEW: LOGIN / ROLE SELECTION
+  ══════════════════════════════════════ -->
+  <div id="view-login" class="login-screen view-section active">
+    <div class="login-card">
+      <div class="login-logo">GM</div>
+      <h1 class="login-title">Gajah Mas Sales System</h1>
+      <p class="login-subtitle">Pilih role Anda untuk melanjutkan</p>
+
+      <div class="role-options">
+        <button class="role-btn" data-role="owner" id="btn-role-owner">
+          <div class="role-icon owner"><i data-lucide="briefcase"></i></div>
+          <div>
+            <div class="role-name">Owner</div>
+            <div class="role-desc">Lihat performa & profit</div>
+          </div>
+        </button>
+        <button class="role-btn" data-role="admin" id="btn-role-admin">
+          <div class="role-icon admin"><i data-lucide="shield"></i></div>
+          <div>
+            <div class="role-name">Admin</div>
+            <div class="role-desc">Kelola data & laporan</div>
+          </div>
+        </button>
+      </div>
+
+      <button class="btn-login" id="btn-login-submit" disabled>
+        Masuk <i data-lucide="arrow-right"></i>
+      </button>
+      <p class="login-note">Sistem otorisasi tanpa password untuk kemudahan akses (Demo)</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       APP SHELL (Visible after login)
+  ══════════════════════════════════════ -->
+  <div id="app-shell" class="app-shell" style="display: none;">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="topbar-logo">GM</div>
+        <div class="topbar-title">Gajah Mas</div>
+      </div>
+      
+      <div class="topbar-divider"></div>
+
+      <!-- Desktop Nav -->
+      <nav class="topbar-nav" id="global-nav">
+        <a href="#/" class="tab-link owner-only" data-view="dashboard" id="nav-dashboard">
+          <i data-lucide="layout-dashboard"></i> Dashboard
+        </a>
+        <a href="#/sales/seller/Jossy" class="tab-link" data-view="seller-detail" id="nav-seller">
+          <i data-lucide="bar-chart-2"></i> Data Transaksi
+        </a>
+        <a href="#/products" class="tab-link admin-only" data-view="products" id="nav-products">
+          <i data-lucide="package"></i> Produk
+        </a>
+        <a href="#/daily_reports" class="tab-link admin-only" data-view="daily-reports" id="nav-reports">
+          <i data-lucide="upload-cloud"></i> Upload
+        </a>
+        <a href="#/sales/new" class="tab-link admin-only" data-view="new-sale" id="nav-new-sale">
+          <i data-lucide="plus-circle"></i> Input Manual
+        </a>
+      </nav>
+
+      <div class="topbar-spacer"></div>
+
+      <button class="role-badge" id="btn-change-role" title="Ganti Role">
+        <div class="dot" id="active-role-dot"></div>
+        <span id="active-role-text">Role</span>
+        <i data-lucide="chevron-down" style="width: 12px; height: 12px; margin-left: 2px;"></i>
+      </button>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="app-main" id="app-main">
+
+      <!-- ── VIEW: DASHBOARD (Owner Only) ── -->
+      <section id="view-dashboard" class="view-section">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Dashboard Performa</h2>
+            <p class="page-subtitle">Ringkasan penjualan harian (Mei 2026)</p>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card cash">
+            <div class="metric-label">Omset Cash</div>
+            <div class="metric-value large" id="dash-val-cash">Rp 0</div>
+            <div class="metric-sub"><b id="dash-qty-cash">0</b> krat (<span id="dash-pct-qty-cash">0%</span> vol)</div>
+            <div class="metric-icon"><i data-lucide="banknote"></i></div>
+          </div>
+          <div class="metric-card tempo">
+            <div class="metric-label">Omset Tempo</div>
+            <div class="metric-value large" id="dash-val-tempo">Rp 0</div>
+            <div class="metric-sub"><b id="dash-qty-tempo">0</b> krat (<span id="dash-pct-qty-tempo">0%</span> vol)</div>
+            <div class="metric-icon"><i data-lucide="credit-card"></i></div>
+          </div>
+          <div class="metric-card profit">
+            <div class="metric-label">Total Profit</div>
+            <div class="metric-value large" id="dash-total-profit">Rp 0</div>
+            <div class="metric-sub">Cash: <b id="dash-sub-profit-cash">Rp 0</b> | Tempo: <b id="dash-sub-profit-tempo">Rp 0</b></div>
+            <div class="metric-icon"><i data-lucide="trending-up"></i></div>
+          </div>
+        </div>
+
+        <div class="page-header" style="margin-top: 1.5rem;">
+          <h2 class="page-title">Performa Salesman</h2>
+        </div>
+        <div class="salesmen-grid" id="dash-salesmen-cards">
+          <!-- Populated via JS -->
+        </div>
+
+      </section>
+
+      <!-- ── VIEW: SELLER DETAIL / DATA TRANSAKSI (Owner & Admin) ── -->
+      <section id="view-seller-detail" class="view-section">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Data Transaksi & Laporan</h2>
+            <p class="page-subtitle">Rincian penjualan per salesman</p>
+          </div>
+          <div class="seller-select-wrap">
+            <span class="seller-select-label">Salesman:</span>
+            <select class="form-control" id="seller-select-control" style="min-width: 140px;">
+              <option value="Jossy">Jossy</option>
+              <option value="Raju">Raju</option>
+              <option value="Hafid">Hafid</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Profit Cards (Owner Only) -->
+        <div class="profit-split-grid owner-only" id="seller-profit-detail">
+           <!-- Populated via JS -->
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label class="filter-label">Mulai</label>
+            <input type="date" class="filter-control" id="filter-date-start">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Selesai</label>
+            <input type="date" class="filter-control" id="filter-date-end">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Produk</label>
+            <select class="filter-control" id="filter-product">
+              <option value="ALL">Semua Produk</option>
+              <option value="FB200">FB200</option>
+              <option value="FB400">FB400</option>
+              <option value="FB800">FB800</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Pembayaran</label>
+            <select class="filter-control" id="filter-payment">
+              <option value="ALL">Semua</option>
+              <option value="Cash">Cash</option>
+              <option value="Tempo">Tempo</option>
+            </select>
+          </div>
+          <div class="filter-group" style="flex: 2;">
+            <label class="filter-label">Customer</label>
+            <input type="text" class="filter-control" id="filter-customer" placeholder="Cari nama...">
+          </div>
+          <button class="btn btn-secondary" id="btn-reset-filters" style="height: 34px;"><i data-lucide="refresh-cw"></i></button>
+        </div>
+
+        <!-- Tabel Rincian -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Rincian Transaksi</div>
+            <div class="btn-row">
+              <a href="#/sales/new" class="btn btn-primary admin-only"><i data-lucide="plus-circle"></i> Tambah</a>
+              <button class="btn btn-success admin-only" id="btn-export-excel"><i data-lucide="download"></i> Export Excel</button>
+              <button class="btn btn-secondary" id="btn-print-pdf"><i data-lucide="printer"></i> Cetak</button>
+            </div>
+          </div>
+          <div class="print-header">
+            <h2 style="font-size: 1.1rem;">Laporan Penjualan – Gajah Mas</h2>
+            <p style="font-size: .75rem; color: #555;">Dicetak: <span id="print-date"></span></p>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Customer</th>
+                  <th>Produk</th>
+                  <th>Qty</th>
+                  <th>Harga</th>
+                  <th>Nominal</th>
+                  <th>Pembayaran</th>
+                  <th class="admin-only" style="text-align: center;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="seller-daily-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tabel Produk (Owner Only) -->
+        <div class="panel owner-only">
+          <div class="panel-header">
+            <div class="panel-title">Ringkasan Per Produk</div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Produk</th>
+                  <th>Cash Qty</th>
+                  <th>Cash Rp</th>
+                  <th>Tempo Qty</th>
+                  <th>Tempo Rp</th>
+                  <th>Total Qty</th>
+                  <th>Total Nominal</th>
+                </tr>
+              </thead>
+              <tbody id="seller-product-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── VIEW: PRODUCTS (Admin Only) ── -->
+      <section id="view-products" class="view-section">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Manajemen Produk</h2>
+            <p class="page-subtitle">Kelola daftar harga dan produk</p>
+          </div>
+          <button class="btn btn-primary" id="btn-new-product"><i data-lucide="plus"></i> Tambah Produk</button>
+        </div>
+        <div class="product-list" id="products-list-container"></div>
+      </section>
+
+      <!-- ── VIEW: UPLOAD EXCEL (Admin Only) ── -->
+      <section id="view-daily-reports" class="view-section">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Upload Rekap Harian</h2>
+            <p class="page-subtitle">Impor data massal dari format Excel (.xlsx)</p>
+          </div>
+        </div>
+
+        <div class="upload-zone" id="excel-drop-zone">
+          <input type="file" id="excel-file-input" accept=".xlsx" style="display:none">
+          <div class="upload-icon-wrap"><i data-lucide="upload-cloud"></i></div>
+          <div class="upload-h">Seret & Lepaskan File Excel</div>
+          <div class="upload-sub">Atau klik untuk menelusuri file</div>
+          <div class="upload-tags">
+            <span class="upload-tag" id="chk-sheet"><i data-lucide="check" style="width:10px;height:10px;"></i> Sheets: JOSSY, RAJU, HAFID</span>
+            <span class="upload-tag" id="chk-cols"><i data-lucide="check" style="width:10px;height:10px;"></i> Format Sesuai</span>
+          </div>
+        </div>
+
+        <div id="upload-preview-area" style="display: none;">
+          <div class="alert alert-success">
+            <i data-lucide="check-circle"></i> File siap diproses. Silakan tinjau data di bawah.
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title" id="preview-data-title">Pratinjau</div>
+              <div class="btn-row">
+                <button class="btn btn-secondary" id="btn-cancel-upload">Batal</button>
+                <button class="btn btn-success" id="btn-commit-upload"><i data-lucide="save"></i> Simpan Data</button>
+              </div>
+            </div>
+            <div class="table-wrap" style="max-height: 400px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Salesman</th><th>Tanggal</th><th>Customer</th><th>Produk</th>
+                    <th>Qty</th><th>Harga</th><th>Nominal</th><th>Pembayaran</th>
+                  </tr>
+                </thead>
+                <tbody id="upload-preview-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VIEW: MANUAL ADD SALE (Admin Only) ── -->
+      <section id="view-new-sale" class="view-section">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Input Transaksi Manual</h2>
+            <p class="page-subtitle">Tambahkan transaksi satuan</p>
+          </div>
+        </div>
+
+        <div class="form-card" style="margin: 0 auto;">
+          <form id="manual-sale-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Salesman</label>
+                <select class="form-control" id="sale-salesman" required>
+                  <option value="" disabled selected>Pilih...</option>
+                  <option value="Jossy">Jossy</option>
+                  <option value="Raju">Raju</option>
+                  <option value="Hafid">Hafid</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pembayaran</label>
+                <select class="form-control" id="sale-payment" required>
+                  <option value="Cash">Cash</option>
+                  <option value="Tempo">Tempo</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Tanggal</label>
+                <input type="date" class="form-control" id="sale-date" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Customer</label>
+                <input type="text" class="form-control" id="sale-customer" placeholder="Nama toko..." required>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Produk</label>
+                <select class="form-control" id="sale-product" required>
+                  <option value="" disabled selected>Pilih...</option>
+                  <option value="FB200">FB200 (200ML)</option>
+                  <option value="FB400">FB400 (400ML)</option>
+                  <option value="FB800">FB800 (800ML)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty (Krat)</label>
+                <input type="number" class="form-control" id="sale-qty" min="1" required>
+              </div>
+            </div>
+
+            <div class="calc-box">
+              <div class="calc-box-item">
+                <span class="calc-box-label">Harga Satuan</span>
+                <span class="calc-box-val accent" id="sale-price-display">Rp 0</span>
+              </div>
+              <div class="calc-box-item" style="text-align: right;">
+                <span class="calc-box-label">Total Nominal</span>
+                <span class="calc-box-val green" id="sale-nominal-display">Rp 0</span>
+              </div>
+            </div>
+
+            <div class="btn-row" style="justify-content: flex-end;">
+              <button type="reset" class="btn btn-secondary" id="btn-reset-form">Reset</button>
+              <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Simpan Transaksi</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <div>Gajah Mas Sales System &copy; 2026</div>
+      <div>
+        <span class="badge green">Online</span>
+      </div>
+    </footer>
+
+    <!-- MOBILE BOTTOM NAV -->
+    <nav class="bottom-nav" id="mobile-nav">
+      <a href="#/" class="bottom-nav-link active owner-only" data-view="dashboard" id="mobnav-dashboard">
+        <i data-lucide="layout-dashboard"></i><span>Beranda</span>
+      </a>
+      <a href="#/sales/seller/Jossy" class="bottom-nav-link" data-view="seller-detail" id="mobnav-seller">
+        <i data-lucide="bar-chart-2"></i><span>Data</span>
+      </a>
+      <a href="#/products" class="bottom-nav-link admin-only" data-view="products" id="mobnav-products">
+        <i data-lucide="package"></i><span>Produk</span>
+      </a>
+      <a href="#/daily_reports" class="bottom-nav-link admin-only" data-view="daily-reports" id="mobnav-reports">
+        <i data-lucide="upload-cloud"></i><span>Upload</span>
+      </a>
+      <a href="#/sales/new" class="bottom-nav-link admin-only" data-view="new-sale" id="mobnav-new-sale">
+        <i data-lucide="plus-circle"></i><span>Input</span>
+      </a>
+    </nav>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODALS
+  ══════════════════════════════════════ -->
+
+  <!-- Modal: Edit/Tambah Produk (Admin) -->
+  <div class="modal-backdrop" id="product-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="product-modal-title">Tambah Produk</h3>
+        <button class="modal-close" id="btn-close-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="product-form">
+        <input type="hidden" id="prod-edit-index">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Kode</label>
+            <input type="text" class="form-control" id="prod-code" required>
+          </div>
+          <div class="form-group" style="margin-bottom: .75rem;">
+            <label class="form-label">Nama Produk</label>
+            <input type="text" class="form-control" id="prod-name" required>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Harga Beli</label>
+              <input type="number" class="form-control" id="prod-buy-price" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Harga Cash</label>
+              <input type="number" class="form-control" id="prod-cash-price" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Harga Tempo</label>
+            <input type="number" class="form-control" id="prod-tempo-price" required>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Export Excel (Admin) -->
+  <div class="modal-backdrop" id="export-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Export Excel</h3>
+        <button class="modal-close" id="btn-close-export-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: .75rem;">
+          <label class="form-label">Periode</label>
+          <select class="form-control" id="export-periode-type">
+            <option value="all">Sesuai Filter Aktif</option>
+            <option value="daily">Harian</option>
+            <option value="weekly">Mingguan (7 Hari Terakhir)</option>
+            <option value="monthly">Bulan Ini</option>
+          </select>
+        </div>
+        <div class="form-grid" id="export-date-range" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Dari</label>
+            <input type="date" class="form-control" id="export-periode-start">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sampai</label>
+            <input type="date" class="form-control" id="export-periode-end">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-export">Batal</button>
+        <button type="button" class="btn btn-success" id="btn-confirm-export"><i data-lucide="download"></i> Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Transaksi (Admin) -->
+  <div class="modal-backdrop" id="tx-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Edit Transaksi</h3>
+        <button class="modal-close" id="btn-close-tx-modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="tx-edit-form">
+        <input type="hidden" id="tx-edit-id">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Tanggal</label>
+              <input type="date" class="form-control" id="tx-edit-date" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Customer</label>
+              <input type="text" class="form-control" id="tx-edit-customer" required>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Produk</label>
+              <select class="form-control" id="tx-edit-product" required>
+                <!-- Populated by JS -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pembayaran</label>
+              <select class="form-control" id="tx-edit-payment" required>
+                <option value="Cash">Cash</option>
+                <option value="Tempo">Tempo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Qty (Krat)</label>
+              <input type="number" class="form-control" id="tx-edit-qty" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Salesman</label>
+              <select class="form-control" id="tx-edit-salesman" required>
+                <option value="Jossy">Jossy</option>
+                <option value="Raju">Raju</option>
+                <option value="Hafid">Hafid</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-tx-modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.354.0/dist/umd/lucide.min.js"></script>
+  <script src="initial_data.js"></script>
+  <script>
+    // Export Modal period logic
+    document.addEventListener('change', function(e) {
+      if (e.target && e.target.id === 'export-periode-type') {
+        const rangEl = document.getElementById('export-date-range');
+        const val = e.target.value;
+        rangEl.style.display = val === 'all' ? 'none' : 'grid';
+        const today = new Date().toISOString().split('T')[0];
+        if (val === 'daily') {
+          document.getElementById('export-periode-start').value = today;
+          document.getElementById('export-periode-end').value = today;
+        } else if (val === 'weekly') {
+          const d7 = new Date(); d7.setDate(d7.getDate() - 6);
+          document.getElementById('export-periode-start').value = d7.toISOString().split('T')[0];
+          document.getElementById('export-periode-end').value = today;
+        } else if (val === 'monthly') {
+          const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+          document.getElementById('export-periode-start').value = firstDay.toISOString().split('T')[0];
+          document.getElementById('export-periode-end').value = today;
+        }
+      }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      const printDateEl = document.getElementById('print-date');
+      if (printDateEl) printDateEl.textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    });
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
