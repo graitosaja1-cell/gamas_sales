@@ -4,13 +4,18 @@
 */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // --- SUPABASE CONFIG ---
+  const supabaseUrl = 'https://xaknjgimtdzjtzfxnmql.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhha25qZ2ltdGR6anR6ZnhubXFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDYyMDAsImV4cCI6MjA5NTM4MjIwMH0.Wa8DpFDfumPClsCzujBJpXA3wsZrD6vyKhFeY6pMTAM';
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
   // --- STATE ---
   let transactions = [];
   let products = [];
   let currentSeller = 'Jossy';
   let filteredTxList = [];
   let pendingUploadData = null;
-  
+
   // Auth state
   let activeRole = sessionStorage.getItem('gamas_role') || null;
   let isDashboardUnlocked = sessionStorage.getItem('gamas_dashboard_unlocked') === 'true';
@@ -25,106 +30,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
   lucide.createIcons();
 
-  // --- LOAD / SAVE STATE ---
-  function loadState() {
-    // Products
-    const savedProducts = localStorage.getItem('gamas_products');
-    if (savedProducts) {
-      products = JSON.parse(savedProducts);
-    } else if (typeof INITIAL_DATA !== 'undefined') {
-      products = INITIAL_DATA.products;
-      localStorage.setItem('gamas_products', JSON.stringify(products));
-    } else {
-      products = [
-        { code: 'FB200', name: 'FITRI BOTOL 200ML', cash_price: 112500, tempo_price: 115800, buy_price: 110500 },
-        { code: 'FB400', name: 'FITRI BOTOL 400ML', cash_price: 111100, tempo_price: 113600, buy_price: 107500 },
-        { code: 'FB800', name: 'FITRI BOTOL 800ML', cash_price: 212600, tempo_price: 215100, buy_price: 201900 }
-      ];
-      localStorage.setItem('gamas_products', JSON.stringify(products));
-    }
+  // --- LOAD / SAVE STATE (SUPABASE) ---
+  async function loadState() {
+    try {
+      const [prodRes, stockRes, salesRes, billRes, orderRes, txRes] = await Promise.all([
+        supabase.from('products').select('*'),
+        supabase.from('stock_data').select('*'),
+        supabase.from('salesmen').select('*'),
+        supabase.from('supplier_bills').select('*'),
+        supabase.from('sales_orders').select('*').order('date', { ascending: false }),
+        supabase.from('transactions').select('*').order('date', { ascending: false }).limit(2000)
+      ]);
 
-    // Transactions
-    const savedTx = localStorage.getItem('gamas_transactions');
-    if (savedTx) {
-      transactions = JSON.parse(savedTx);
-    } else if (typeof INITIAL_DATA !== 'undefined') {
-      transactions = INITIAL_DATA.transactions;
-      localStorage.setItem('gamas_transactions', JSON.stringify(transactions));
-    }
-    
-    // Ensure all transactions have an ID
-    transactions.forEach(t => {
-      if (!t.id) t.id = 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9);
-    });
+      if (prodRes.data && prodRes.data.length > 0) products = prodRes.data;
+      if (stockRes.data) {
+        stockData = {};
+        stockRes.data.forEach(item => {
+          stockData[item.product_code] = item.qty;
+        });
+      }
+      if (salesRes.data && salesRes.data.length > 0) salesmen = salesRes.data;
+      if (billRes.data && billRes.data.length > 0) supplierBills = billRes.data;
+      if (orderRes.data && orderRes.data.length > 0) salesOrders = orderRes.data;
+      if (txRes.data && txRes.data.length > 0) transactions = txRes.data;
 
-    // Bank Accounts (Info Rekening)
-    const savedBank = localStorage.getItem('gamas_bank_info');
-    if (savedBank) {
-      bankAccounts = JSON.parse(savedBank);
-    } else {
-      bankAccounts = [
-        { bank: 'BANK CENTRAL ASIA (BCA)', number: '8290-345-678', holder: 'CV GAJAH MAS DISTRIBUSI' },
-        { bank: 'BANK MANDIRI', number: '138-00-9876-543', holder: 'CV GAJAH MAS DISTRIBUSI' }
-      ];
-      localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
-    }
+      const savedBank = localStorage.getItem('gamas_bank_info');
+      if (savedBank) {
+        bankAccounts = JSON.parse(savedBank);
+      } else {
+        bankAccounts = [
+          { bank: 'BANK CENTRAL ASIA (BCA)', number: '8290-345-678', holder: 'CV GAJAH MAS DISTRIBUSI' },
+          { bank: 'BANK MANDIRI', number: '138-00-9876-543', holder: 'CV GAJAH MAS DISTRIBUSI' }
+        ];
+        localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
+      }
 
-    // Supplier Bills
-    const savedSupplier = localStorage.getItem('gamas_supplier_bills');
-    if (savedSupplier) {
-      supplierBills = JSON.parse(savedSupplier);
-    } else {
-      supplierBills = [
-        { supplier: 'PT FITRI MINYAK UTAMA', date: '2026-05-10', due: '2026-06-10', amount: 45000000, status: 'Unpaid' },
-        { supplier: 'UD BOTOL PLASTIK RAYA', date: '2026-05-15', due: '2026-06-15', amount: 12500000, status: 'Paid' }
-      ];
-      localStorage.setItem('gamas_supplier_bills', JSON.stringify(supplierBills));
-    }
-
-    // Stok Gudang
-    const savedStok = localStorage.getItem('gamas_stok');
-    if (savedStok) {
-      stockData = JSON.parse(savedStok);
-    } else {
-      stockData = {
-        FB200: 500,
-        FB400: 350,
-        FB800: 120
-      };
-      localStorage.setItem('gamas_stok', JSON.stringify(stockData));
-    }
-
-    // Salesmen Registry
-    const savedSalesmen = localStorage.getItem('gamas_salesmen');
-    if (savedSalesmen) {
-      salesmen = JSON.parse(savedSalesmen);
-    } else {
-      salesmen = [
-        { name: 'Jossy', phone: '628123456789', status: 'Active' },
-        { name: 'Raju', phone: '628523456789', status: 'Active' },
-        { name: 'Hafid', phone: '628987654321', status: 'Active' }
-      ];
-      localStorage.setItem('gamas_salesmen', JSON.stringify(salesmen));
-    }
-
-    // Sales Orders
-    const savedOrders = localStorage.getItem('gamas_orders');
-    if (savedOrders) {
-      salesOrders = JSON.parse(savedOrders);
-    } else {
-      salesOrders = [];
-      localStorage.setItem('gamas_orders', JSON.stringify(salesOrders));
+    } catch (e) {
+      console.error("Supabase load error:", e);
+      alert("Gagal terhubung ke Supabase. Pastikan koneksi internet stabil.");
     }
   }
 
-  function saveState() {
-    localStorage.setItem('gamas_products', JSON.stringify(products));
-    localStorage.setItem('gamas_transactions', JSON.stringify(transactions));
-    localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
-    localStorage.setItem('gamas_supplier_bills', JSON.stringify(supplierBills));
-    localStorage.setItem('gamas_stok', JSON.stringify(stockData));
-    localStorage.setItem('gamas_salesmen', JSON.stringify(salesmen));
-    localStorage.setItem('gamas_orders', JSON.stringify(salesOrders));
+  async function saveState() {
+    try {
+      const errors = [];
+
+      if (products.length > 0) {
+        const res = await supabase.from('products').upsert(products, { onConflict: 'code' });
+        if (res.error) errors.push('products: ' + res.error.message);
+      }
+
+      const stockArr = Object.keys(stockData).map(k => ({ product_code: k, qty: stockData[k] }));
+      if (stockArr.length > 0) {
+        const res = await supabase.from('stock_data').upsert(stockArr, { onConflict: 'product_code' });
+        if (res.error) errors.push('stock_data: ' + res.error.message);
+      }
+
+      if (salesmen.length > 0) {
+        const smPayload = salesmen.map(s => {
+          if (!s.id) s.id = crypto.randomUUID();
+          return s;
+        });
+        const res = await supabase.from('salesmen').upsert(smPayload, { onConflict: 'id' });
+        if (res.error) errors.push('salesmen: ' + res.error.message);
+      }
+
+      if (supplierBills.length > 0) {
+        const billsPayload = supplierBills.map(b => {
+          if (!b.id) b.id = crypto.randomUUID();
+          return b;
+        });
+        const res = await supabase.from('supplier_bills').upsert(billsPayload, { onConflict: 'id' });
+        if (res.error) errors.push('supplier_bills: ' + res.error.message);
+      }
+
+      if (salesOrders.length > 0) {
+        const res = await supabase.from('sales_orders').upsert(salesOrders, { onConflict: 'id' });
+        if (res.error) errors.push('sales_orders: ' + res.error.message);
+      }
+
+      // Save all transactions
+      if (transactions.length > 0) {
+        for (let i = 0; i < transactions.length; i += 500) {
+          const chunk = transactions.slice(i, i + 500);
+          const res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
+          if (res.error) errors.push('transactions: ' + res.error.message);
+        }
+      }
+
+      localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
+
+      if (errors.length > 0) {
+        console.error('Supabase save errors:', errors);
+        alert('Peringatan: Beberapa data gagal tersimpan ke database.\n' + errors.join('\n'));
+      }
+    } catch (e) {
+      console.error("Supabase save error", e);
+      alert('Gagal menyimpan data ke Supabase: ' + e.message);
+    }
   }
 
   // --- HELPERS ---
@@ -152,19 +155,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- DYNAMIC SELECTORS LOADING ---
   function populateSalesmenSelectors() {
-    const activeSalesmen = salesmen.filter(s => s.status === 'Active');
-    
+    const activeSalesmen = salesmen.filter(s => s.status && s.status.trim().toLowerCase() === 'active');
+
     // 1. App select salesman control (Data Transaksi)
     const selControl = document.getElementById('seller-select-control');
     if (selControl) {
-      const prevVal = selControl.value || currentSeller;
+      const prevVal = (selControl.value || currentSeller || '').toLowerCase();
       selControl.innerHTML = '';
       activeSalesmen.forEach(s => {
         selControl.innerHTML += `<option value="${s.name}">${s.name}</option>`;
       });
-      if (activeSalesmen.some(s => s.name === prevVal)) {
-        selControl.value = prevVal;
-        currentSeller = prevVal;
+      const matched = activeSalesmen.find(s => s.name.toLowerCase() === prevVal);
+      if (matched) {
+        selControl.value = matched.name;
+        currentSeller = matched.name;
       } else if (activeSalesmen.length > 0) {
         selControl.value = activeSalesmen[0].name;
         currentSeller = activeSalesmen[0].name;
@@ -204,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const appShell = document.getElementById('app-shell');
   const pinErrorMsg = document.getElementById('pin-error-msg');
   const pinInput = document.getElementById('pin-input');
-  
+
   let currentPin = '';
 
   // PIN Key clicks
@@ -214,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPin += key.getAttribute('data-val');
         pinInput.value = '*'.repeat(currentPin.length);
         pinErrorMsg.style.display = 'none';
-        
+
         // Auto-check PIN on 6 digits
         if (currentPin.length === 6) {
           checkPINAuth();
@@ -267,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         loginCard.style.animation = 'shake 0.3s ease';
       }, 10);
-      
+
       currentPin = '';
       pinInput.value = '';
     }
@@ -350,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeRoleDot = document.getElementById('active-role-dot');
     const sideRoleAvatar = document.getElementById('sidebar-role-avatar');
     const sideRoleName = document.getElementById('sidebar-role-name');
-    
+
     if (activeRole === 'owner') {
       if (activeRoleText) activeRoleText.textContent = 'Owner';
       if (activeRoleDot) activeRoleDot.className = 'dot owner';
@@ -392,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!activeRole) return; // Wait for auth PIN
 
     let hash = window.location.hash || '#/';
-    
+
     // Security Routing Checks
     if (activeRole === 'admin' && hash === '#/') {
       hash = '#/sales/seller/Jossy';
@@ -400,9 +404,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (activeRole === 'owner' && (
-      hash === '#/products' || 
-      hash === '#/daily_reports' || 
-      hash === '#/sales/new' || 
+      hash === '#/products' ||
+      hash === '#/daily_reports' ||
+      hash === '#/sales/new' ||
       hash === '#/kelola_sales'
     )) {
       hash = '#/';
@@ -497,16 +501,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW 1: DASHBOARD
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderDashboard() {
     if (activeRole !== 'owner') return;
 
     // Apply dashboard lock animation overlay
     const overlay = document.getElementById('dashboard-lock-overlay');
     const unlockedContent = document.getElementById('dashboard-unlocked-content');
-    
+
     if (overlay && unlockedContent) {
       if (isDashboardUnlocked) {
         overlay.style.display = 'none';
@@ -531,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = prodMap[t.product_code];
       const buyPrice = p ? p.buy_price : 0;
       const profit = t.nominal - (t.qty * buyPrice);
-      
+
       // Safety mapping
       if (txCounts[t.salesman]) {
         txCounts[t.salesman][t.payment_type === 'Cash' ? 'Cash' : 'Tempo']++;
@@ -559,7 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('dash-qty-tempo').textContent = `${qtyTempo.toLocaleString('id-ID')}`;
     document.getElementById('dash-pct-qty-tempo').textContent = `${totalQty > 0 ? Math.round((qtyTempo / totalQty) * 100) : 0}%`;
     document.getElementById('dash-val-tempo').textContent = formatIDR(valTempo);
-    
+
     document.getElementById('dash-total-profit').textContent = formatIDR(totalProfit);
     document.getElementById('dash-sub-profit-cash').textContent = formatIDR(profitCash);
     document.getElementById('dash-sub-profit-tempo').textContent = formatIDR(profitTempo);
@@ -601,10 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
     btnUnlockDashboard.onclick = () => {
       isDashboardUnlocked = true;
       sessionStorage.setItem('gamas_dashboard_unlocked', 'true');
-      
+
       const overlay = document.getElementById('dashboard-lock-overlay');
       const unlockedContent = document.getElementById('dashboard-unlocked-content');
-      
+
       if (overlay && unlockedContent) {
         overlay.style.opacity = '0';
         overlay.style.transform = 'scale(0.95)';
@@ -622,12 +626,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('dash-salesmen-cards');
     if (!container) return;
     container.innerHTML = '';
-    
+
     // Only display dynamic active salesmen
     salesmen.filter(s => s.status === 'Active').forEach((s, idx) => {
       const salesmanName = s.name;
       let totalSales = 0, cashSales = 0, tempoSales = 0, totalQty = 0, profitCash = 0, profitTempo = 0;
-      
+
       transactions.forEach(t => {
         if (t.salesman.toLowerCase() === salesmanName.toLowerCase()) {
           const p = prodMap[t.product_code];
@@ -669,9 +673,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW 2: SELLER DETAIL
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderSellerDetail() {
     const prodMap = getProdMap();
 
@@ -719,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="psc-desc">${formatIDR(valTempo)}</div>
           </div>
           <div class="profit-split-card total-p">
-            <div class="psc-label">Total Profit – ${currentSeller.toUpperCase()}</div>
+            <div class="psc-label">Total Profit â€“ ${currentSeller.toUpperCase()}</div>
             <div class="psc-amount" style="color: var(--green);">${formatIDR(totalProfit)}</div>
             <div class="psc-desc">${totalQty.toLocaleString('id-ID')} krat | ${formatIDR(totalSales)} omset</div>
           </div>
@@ -750,16 +754,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFiltersAndRenderDaily(sellerTxList);
   }
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // FILTER & DAILY TABLE
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function setupFiltersAndRenderDaily(sellerTxList) {
     const dateStartInput = document.getElementById('filter-date-start');
-    const dateEndInput   = document.getElementById('filter-date-end');
-    const productSelect  = document.getElementById('filter-product');
-    const paymentSelect  = document.getElementById('filter-payment');
-    const customerInput  = document.getElementById('filter-customer');
-    const btnReset       = document.getElementById('btn-reset-filters');
+    const dateEndInput = document.getElementById('filter-date-end');
+    const productSelect = document.getElementById('filter-product');
+    const searchInput = document.getElementById('filter-search-query') || document.getElementById('filter-customer');
+    const btnReset = document.getElementById('btn-apply-filter') || document.getElementById('btn-reset-filters');
 
     if (!dateStartInput) return; // fail safe
 
@@ -771,24 +774,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     dateStartInput.value = minDate;
-    dateEndInput.value   = maxDate;
-    productSelect.value  = 'ALL';
-    paymentSelect.value  = 'ALL';
-    customerInput.value  = '';
+    dateEndInput.value = maxDate;
+    if (productSelect) productSelect.value = 'ALL';
+    if (searchInput) searchInput.value = '';
 
     function applyFilters() {
-      const start       = dateStartInput.value;
-      const end         = dateEndInput.value;
-      const selProd     = productSelect.value;
-      const selPayment  = paymentSelect.value;
-      const queryCust   = customerInput.value.toLowerCase().trim();
+      const start = dateStartInput.value;
+      const end = dateEndInput.value;
+      const selProd = productSelect ? productSelect.value : 'ALL';
+      const querySearch = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
       filteredTxList = sellerTxList.filter(t => {
         if (start && t.date < start) return false;
-        if (end   && t.date > end)   return false;
+        if (end && t.date > end) return false;
         if (selProd !== 'ALL' && t.product_code !== selProd) return false;
-        if (selPayment !== 'ALL' && t.payment_type !== selPayment) return false;
-        if (queryCust && !t.customer.toLowerCase().includes(queryCust)) return false;
+        if (querySearch && !t.customer.toLowerCase().includes(querySearch) && !t.product_name.toLowerCase().includes(querySearch)) return false;
         return true;
       });
 
@@ -797,15 +797,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return a.customer.localeCompare(b.customer);
       });
 
+      // Pagination
+      const limit = 50;
+      const totalPages = Math.ceil(filteredTxList.length / limit) || 1;
+      let currentPage = window.currentTxPage || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      window.currentTxPage = currentPage;
+
+      const startIndex = (currentPage - 1) * limit;
+      const paginatedList = filteredTxList.slice(startIndex, startIndex + limit);
+
+      const btnPrev = document.getElementById('btn-prev-page');
+      const btnNext = document.getElementById('btn-next-page');
+      const pageInfo = document.getElementById('pagination-info');
+
+      if (btnPrev && btnNext && pageInfo) {
+        pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
+        btnPrev.disabled = currentPage === 1;
+        btnNext.disabled = currentPage === totalPages;
+
+        btnPrev.onclick = () => { if (currentPage > 1) { window.currentTxPage--; applyFilters(); } };
+        btnNext.onclick = () => { if (currentPage < totalPages) { window.currentTxPage++; applyFilters(); } };
+      }
+
       const dailyTbody = document.getElementById('seller-daily-table-body');
       dailyTbody.innerHTML = '';
 
-      if (filteredTxList.length === 0) {
+      if (paginatedList.length === 0) {
         dailyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-2);padding:1.5rem">Tidak ada data.</td></tr>';
         return;
       }
 
-      filteredTxList.forEach(t => {
+      paginatedList.forEach(t => {
         const dateObj = new Date(t.date);
         const formattedDate = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
         const paymentBadge = t.payment_type.toLowerCase();
@@ -825,22 +848,21 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         dailyTbody.appendChild(tr);
       });
-      
+
       lucide.createIcons();
     }
 
-    dateStartInput.onchange = applyFilters;
-    dateEndInput.onchange   = applyFilters;
-    productSelect.onchange  = applyFilters;
-    paymentSelect.onchange  = applyFilters;
-    customerInput.oninput   = applyFilters;
+    if (dateStartInput) dateStartInput.onchange = () => { window.currentTxPage = 1; applyFilters(); };
+    if (dateEndInput) dateEndInput.onchange = () => { window.currentTxPage = 1; applyFilters(); };
+    if (productSelect) productSelect.onchange = () => { window.currentTxPage = 1; applyFilters(); };
+    if (searchInput) searchInput.oninput = () => { window.currentTxPage = 1; applyFilters(); };
 
-    btnReset.onclick = () => {
+    if (btnReset) btnReset.onclick = () => {
+      window.currentTxPage = 1;
       dateStartInput.value = minDate;
-      dateEndInput.value   = maxDate;
-      productSelect.value  = 'ALL';
-      paymentSelect.value  = 'ALL';
-      customerInput.value  = '';
+      dateEndInput.value = maxDate;
+      if (productSelect) productSelect.value = 'ALL';
+      if (searchInput) searchInput.value = '';
       applyFilters();
     };
 
@@ -848,9 +870,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EXPORT EXCEL (.xlsx) DENGAN FILTER PERIODE
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function showExportModal() {
     const modal = document.getElementById('export-modal');
     if (modal) modal.classList.add('active');
@@ -882,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const periodeType = document.getElementById('export-periode-type').value;
     const periodeStart = document.getElementById('export-periode-start').value;
-    const periodeEnd   = document.getElementById('export-periode-end').value;
+    const periodeEnd = document.getElementById('export-periode-end').value;
 
     let dataToExport = [...filteredTxList];
 
@@ -902,17 +924,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const buyPrice = p ? p.buy_price : 0;
       const profit = t.nominal - (t.qty * buyPrice);
       return {
-        'Salesman':           t.salesman,
-        'Tanggal':            t.date,
-        'Customer':           t.customer,
-        'Produk':             t.product_code,
-        'Nama Produk':        p ? p.name : t.product_code,
-        'QTY (krat)':         t.qty,
-        'Harga Jual (Rp)':    t.price,
-        'Nominal (Rp)':       t.nominal,
-        'Jenis Pembayaran':   t.payment_type,
-        'Harga Beli (Rp)':    buyPrice,
-        'Profit (Rp)':        profit
+        'Salesman': t.salesman,
+        'Tanggal': t.date,
+        'Customer': t.customer,
+        'Produk': t.product_code,
+        'Nama Produk': p ? p.name : t.product_code,
+        'QTY (krat)': t.qty,
+        'Harga Jual (Rp)': t.price,
+        'Nominal (Rp)': t.nominal,
+        'Jenis Pembayaran': t.payment_type,
+        'Harga Beli (Rp)': buyPrice,
+        'Profit (Rp)': profit
       };
     });
 
@@ -928,25 +950,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const summaryRows = Object.entries(salesSummary).map(([name, sm]) => ({
-      'Salesman':           name,
-      'QTY Cash (krat)':    sm.cash_qty,
-      'Omset Cash (Rp)':    sm.cash_rp,
-      'Profit Cash (Rp)':   sm.cash_profit,
-      'QTY Tempo (krat)':   sm.tempo_qty,
-      'Omset Tempo (Rp)':   sm.tempo_rp,
-      'Profit Tempo (Rp)':  sm.tempo_profit,
-      'Total QTY (krat)':   sm.cash_qty + sm.tempo_qty,
-      'Total Omset (Rp)':   sm.cash_rp + sm.tempo_rp,
-      'Total Profit (Rp)':  sm.cash_profit + sm.tempo_profit
+      'Salesman': name,
+      'QTY Cash (krat)': sm.cash_qty,
+      'Omset Cash (Rp)': sm.cash_rp,
+      'Profit Cash (Rp)': sm.cash_profit,
+      'QTY Tempo (krat)': sm.tempo_qty,
+      'Omset Tempo (Rp)': sm.tempo_rp,
+      'Profit Tempo (Rp)': sm.tempo_profit,
+      'Total QTY (krat)': sm.cash_qty + sm.tempo_qty,
+      'Total Omset (Rp)': sm.cash_rp + sm.tempo_rp,
+      'Total Profit (Rp)': sm.cash_profit + sm.tempo_profit
     }));
 
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(rows);
-    ws1['!cols'] = [{wch:10},{wch:12},{wch:30},{wch:8},{wch:22},{wch:10},{wch:14},{wch:16},{wch:14},{wch:14},{wch:14}];
+    ws1['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws1, 'Detail Transaksi');
 
     const ws2 = XLSX.utils.json_to_sheet(summaryRows);
-    ws2['!cols'] = [{wch:10},{wch:14},{wch:16},{wch:16},{wch:14},{wch:16},{wch:16},{wch:14},{wch:16},{wch:16}];
+    ws2['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws2, 'Ringkasan Salesman');
 
     const periodLabel = periodeType === 'all' ? 'Semua' : `${periodeStart}_sd_${periodeEnd}`;
@@ -958,9 +980,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW 3: PRODUCTS CATALOG (Admin)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderProductsCatalog() {
     if (activeRole !== 'admin') return;
 
@@ -1009,22 +1031,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // PRODUCT MODAL (Admin)
-  // ════════════════════════════════════════
-  const prodModal    = document.getElementById('product-modal');
-  const productForm  = document.getElementById('product-form');
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const prodModal = document.getElementById('product-modal');
+  const productForm = document.getElementById('product-form');
 
   function openProductModal(index = null) {
     if (!prodModal) return;
     prodModal.classList.add('active');
     const inputIndex = document.getElementById('prod-edit-index');
-    const inputCode  = document.getElementById('prod-code');
-    const inputName  = document.getElementById('prod-name');
-    const inputBuy   = document.getElementById('prod-buy-price');
-    const inputCash  = document.getElementById('prod-cash-price');
+    const inputCode = document.getElementById('prod-code');
+    const inputName = document.getElementById('prod-name');
+    const inputBuy = document.getElementById('prod-buy-price');
+    const inputCash = document.getElementById('prod-cash-price');
     const inputTempo = document.getElementById('prod-tempo-price');
-    
+
     document.getElementById('product-modal-title').textContent =
       index !== null ? `Edit Produk - ${products[index].code}` : 'Tambah Produk Baru';
 
@@ -1048,8 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnNewProd) btnNewProd.onclick = () => openProductModal();
 
   const btnCloseM = document.getElementById('btn-close-modal');
-  if (btnCloseM) btnCloseM.onclick  = closeProductModal;
-  
+  if (btnCloseM) btnCloseM.onclick = closeProductModal;
+
   const btnCancelM = document.getElementById('btn-cancel-modal');
   if (btnCancelM) btnCancelM.onclick = closeProductModal;
 
@@ -1057,10 +1079,10 @@ document.addEventListener('DOMContentLoaded', () => {
     productForm.onsubmit = (e) => {
       e.preventDefault();
       const index = document.getElementById('prod-edit-index').value;
-      const code  = document.getElementById('prod-code').value.toUpperCase().trim();
-      const name  = document.getElementById('prod-name').value.trim();
-      const buy_price   = parseFloat(document.getElementById('prod-buy-price').value);
-      const cash_price  = parseFloat(document.getElementById('prod-cash-price').value);
+      const code = document.getElementById('prod-code').value.toUpperCase().trim();
+      const name = document.getElementById('prod-name').value.trim();
+      const buy_price = parseFloat(document.getElementById('prod-buy-price').value);
+      const cash_price = parseFloat(document.getElementById('prod-cash-price').value);
       const tempo_price = parseFloat(document.getElementById('prod-tempo-price').value);
       const payload = { code, name, buy_price, cash_price, tempo_price };
       if (index !== '') {
@@ -1075,19 +1097,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW 4: EXCEL UPLOAD (Admin)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function setupExcelDropZone() {
     if (activeRole !== 'admin') return;
-    const dropZone  = document.getElementById('excel-drop-zone');
+    const dropZone = document.getElementById('excel-drop-zone');
     const fileInput = document.getElementById('excel-file-input');
-    if(!dropZone || !fileInput) return;
+    if (!dropZone || !fileInput) return;
 
     dropZone.onclick = () => fileInput.click();
-    ['dragenter','dragover','dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false));
-    ['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.add('dragover')));
-    ['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover')));
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }, false));
+    ['dragenter', 'dragover'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.add('dragover')));
+    ['dragleave', 'drop'].forEach(ev => dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover')));
     dropZone.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) handleExcelFile(f); }, false);
     fileInput.onchange = (e) => { const f = e.target.files[0]; if (f) handleExcelFile(f); };
   }
@@ -1095,30 +1117,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleExcelFile(file) {
     if (!file.name.endsWith('.xlsx')) { alert('Tolong unggah file Excel format .xlsx!'); return; }
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
       const data = new Uint8Array(e.target.result);
       try {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheets = workbook.SheetNames;
-        const required = salesmen.filter(s => s.status === 'Active').map(s => s.name.toUpperCase());
-        if (required.length === 0) {
-          alert('Belum ada salesmen aktif terdaftar!');
-          return;
-        }
-        
-        // Match sheet dynamic
-        if (!required.every(s => sheets.map(x => x.toUpperCase()).includes(s))) {
-          alert(`Excel harus berisi sheet sesuai nama sales aktif: ${required.join(', ')}`);
-          return;
-        }
         document.getElementById('chk-sheet').classList.add('valid');
 
         let parsedRows = [];
-        let chkColsValid = true;
 
-        required.forEach(sheetName => {
-          const actualSheet = sheets.find(s => s.toUpperCase() === sheetName);
-          const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[actualSheet], { header: 1 });
+        sheets.forEach(sheetName => {
+          const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
           let headerRowIdx = -1;
           for (let r = 0; r < Math.min(rawJson.length, 10); r++) {
             const row = rawJson[r];
@@ -1126,21 +1135,22 @@ document.addEventListener('DOMContentLoaded', () => {
               headerRowIdx = r; break;
             }
           }
-          if (headerRowIdx === -1) { chkColsValid = false; return; }
+          if (headerRowIdx === -1) return; // Skip sheets without Sales header
+          
           const headers = rawJson[headerRowIdx].map(h => h ? h.toString().toLowerCase() : '');
-          const colSales = headers.findIndex(h => h.includes('sales'));
-          const colDate  = headers.findIndex(h => h.includes('tanggal'));
-          const colCust  = headers.findIndex(h => h.includes('customer'));
-          const colProd  = headers.findIndex(h => h.includes('produk'));
-          const colQty   = headers.findIndex(h => h.includes('qty'));
+          const colDate = headers.findIndex(h => h.includes('tanggal'));
+          const colCust = headers.findIndex(h => h.includes('customer'));
+          const colProd = headers.findIndex(h => h.includes('produk'));
+          const colQty = headers.findIndex(h => h.includes('qty'));
           const colPrice = headers.findIndex(h => h.includes('harga'));
-          const colNom   = headers.findIndex(h => h.includes('nominal'));
-          const colPay   = headers.findIndex(h => h.includes('pembayaran'));
-          if ([colSales, colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) { chkColsValid = false; return; }
+          const colNom = headers.findIndex(h => h.includes('nominal'));
+          const colPay = headers.findIndex(h => h.includes('pembayaran'));
+          
+          if ([colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) return; // Skip sheets with incomplete columns
 
           for (let r = headerRowIdx + 1; r < rawJson.length; r++) {
             const row = rawJson[r];
-            if (!row || !row[colSales]) continue;
+            if (!row || (!row[colQty] && !row[colProd])) continue;
             let dateVal = row[colDate];
             if (dateVal instanceof Date) {
               dateVal = dateVal.toISOString().split('T')[0];
@@ -1153,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const prodName = row[colProd] ? row[colProd].toString().trim() : '';
             const paymentVal = row[colPay] ? row[colPay].toString().trim() : 'Tempo';
             parsedRows.push({
-              id: 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9),
+              id: crypto.randomUUID(),
               salesman: sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase(),
               date: dateVal,
               customer: row[colCust] ? row[colCust].toString().trim() : '-',
@@ -1167,8 +1177,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
 
-        if (!chkColsValid || parsedRows.length === 0) {
-          alert('Format kolom tidak cocok! Periksa nama kolom Excel.');
+        if (parsedRows.length === 0) {
+          alert('Tidak ada data transaksi yang valid ditemukan! Periksa format kolom Excel.');
           return;
         }
         document.getElementById('chk-cols').classList.add('valid');
@@ -1183,10 +1193,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showExcelUploadPreview() {
-    const previewArea  = document.getElementById('upload-preview-area');
+    const previewArea = document.getElementById('upload-preview-area');
     const previewTbody = document.getElementById('upload-preview-table-body');
-    if(!previewArea || !previewTbody) return;
-    
+    if (!previewArea || !previewTbody) return;
+
     previewTbody.innerHTML = '';
     document.getElementById('preview-data-title').textContent = `Pratinjau Data (${pendingUploadData.length.toLocaleString('id-ID')} Transaksi)`;
     pendingUploadData.slice(0, 30).forEach(t => {
@@ -1206,7 +1216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (pendingUploadData.length > 30) {
       const trMore = document.createElement('tr');
-      trMore.innerHTML = `<td colspan="8" style="text-align:center;color:var(--text-3);padding:1rem">...dan ${(pendingUploadData.length-30).toLocaleString('id-ID')} baris lainnya.</td>`;
+      trMore.innerHTML = `<td colspan="8" style="text-align:center;color:var(--text-3);padding:1rem">...dan ${(pendingUploadData.length - 30).toLocaleString('id-ID')} baris lainnya.</td>`;
       previewTbody.appendChild(trMore);
     }
     previewArea.style.display = 'block';
@@ -1243,19 +1253,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // VIEW 5: MANUAL ADD SALE (Admin)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function setupManualSaleForm() {
     if (activeRole !== 'admin') return;
 
-    const form         = document.getElementById('manual-sale-form');
+    const form = document.getElementById('manual-sale-form');
     const inputProduct = document.getElementById('sale-product');
     const inputPayment = document.getElementById('sale-payment');
-    const inputQty     = document.getElementById('sale-qty');
-    const inputDate    = document.getElementById('sale-date');
-    const inputSalesman= document.getElementById('sale-salesman');
-    const inputCust    = document.getElementById('sale-customer');
+    const inputQty = document.getElementById('sale-qty');
+    const inputDate = document.getElementById('sale-date');
+    const inputSalesman = document.getElementById('sale-salesman');
+    const inputCust = document.getElementById('sale-customer');
 
     if (!form) return;
 
@@ -1263,44 +1273,44 @@ document.addEventListener('DOMContentLoaded', () => {
     inputDate.value = today;
 
     function updateCalc() {
-      const prodCode    = inputProduct.value;
+      const prodCode = inputProduct.value;
       const paymentType = inputPayment.value;
-      const qty         = parseInt(inputQty.value || 0);
+      const qty = parseInt(inputQty.value || 0);
       if (!prodCode) {
-        document.getElementById('sale-price-display').textContent   = 'Rp 0';
+        document.getElementById('sale-price-display').textContent = 'Rp 0';
         document.getElementById('sale-nominal-display').textContent = 'Rp 0';
         return;
       }
       const p = products.find(x => x.code === prodCode);
       if (!p) return;
-      const price   = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
+      const price = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
       const nominal = qty * price;
-      document.getElementById('sale-price-display').textContent   = formatIDR(price);
+      document.getElementById('sale-price-display').textContent = formatIDR(price);
       document.getElementById('sale-nominal-display').textContent = formatIDR(nominal);
     }
 
     inputProduct.onchange = updateCalc;
     inputPayment.onchange = updateCalc;
-    inputQty.oninput      = updateCalc;
+    inputQty.oninput = updateCalc;
 
     form.onsubmit = (e) => {
       e.preventDefault();
-      const prodCode    = inputProduct.value;
-      const p           = products.find(x => x.code === prodCode);
+      const prodCode = inputProduct.value;
+      const p = products.find(x => x.code === prodCode);
       if (!p) return;
-      const qty         = parseInt(inputQty.value);
+      const qty = parseInt(inputQty.value);
       const paymentType = inputPayment.value;
-      const price       = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
-      
+      const price = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
+
       transactions.unshift({
-        id: 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9),
-        salesman:     inputSalesman.value,
-        date:         inputDate.value,
-        customer:     inputCust.value.trim().toUpperCase(),
+        id: crypto.randomUUID(),
+        salesman: inputSalesman.value,
+        date: inputDate.value,
+        customer: inputCust.value.trim().toUpperCase(),
         product_name: p.name,
         product_code: prodCode,
         qty, price,
-        nominal:      qty * price,
+        nominal: qty * price,
         payment_type: paymentType
       });
       saveState();
@@ -1317,29 +1327,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // TX EDIT/DELETE (Admin)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const txModal = document.getElementById('tx-modal');
   const txEditForm = document.getElementById('tx-edit-form');
 
   function openTxModal(txId) {
     const t = transactions.find(x => x.id === txId);
     if (!t || !txModal) return;
-    
+
     document.getElementById('tx-edit-id').value = t.id;
     document.getElementById('tx-edit-date').value = t.date;
     document.getElementById('tx-edit-customer').value = t.customer;
     document.getElementById('tx-edit-qty').value = t.qty;
     document.getElementById('tx-edit-salesman').value = t.salesman;
     document.getElementById('tx-edit-payment').value = t.payment_type;
-    
+
     const prodSelect = document.getElementById('tx-edit-product');
     prodSelect.innerHTML = '<option value="" disabled>Pilih Produk</option>';
     products.forEach(p => {
       prodSelect.innerHTML += `<option value="${p.code}" ${p.code === t.product_code ? 'selected' : ''}>${p.code} - ${p.name}</option>`;
     });
-    
+
     txModal.classList.add('active');
   }
 
@@ -1358,13 +1368,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = document.getElementById('tx-edit-id').value;
       const t = transactions.find(x => x.id === id);
       if (!t) return;
-      
+
       const prodCode = document.getElementById('tx-edit-product').value;
       const p = products.find(x => x.code === prodCode);
       const qty = parseInt(document.getElementById('tx-edit-qty').value);
       const paymentType = document.getElementById('tx-edit-payment').value;
       const price = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
-      
+
       t.date = document.getElementById('tx-edit-date').value;
       t.customer = document.getElementById('tx-edit-customer').value.toUpperCase();
       t.product_code = prodCode;
@@ -1374,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
       t.salesman = document.getElementById('tx-edit-salesman').value;
       t.price = price;
       t.nominal = qty * price;
-      
+
       saveState();
       closeTxModal();
       renderSellerDetail();
@@ -1400,9 +1410,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: INFO REKENING (Manual Input)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderInfoRekening() {
     const container = document.getElementById('bank-cards-container');
     if (!container) return;
@@ -1438,7 +1448,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editBankBtn) {
       editBankBtn.onclick = () => openBankModal();
     }
-    
+
     // Grid item edits
     document.querySelectorAll('.btn-edit-bank-item').forEach(btn => {
       btn.onclick = () => {
@@ -1468,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function openBankModal(index = null) {
     if (!bankModal) return;
     bankModal.classList.add('active');
-    
+
     const bankNameInput = document.getElementById('bank-name-input');
     const bankNumberInput = document.getElementById('bank-number-input');
     const bankHolderInput = document.getElementById('bank-holder-input');
@@ -1505,13 +1515,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const bank = document.getElementById('bank-name-input').value.toUpperCase().trim();
       const number = document.getElementById('bank-number-input').value.trim();
       const holder = document.getElementById('bank-holder-input').value.toUpperCase().trim();
-      
+
       if (currentEditingBankIdx !== null) {
         bankAccounts[currentEditingBankIdx] = { bank, number, holder };
       } else {
         bankAccounts.push({ bank, number, holder });
       }
-      
+
       saveState();
       closeBankModal();
       renderInfoRekening();
@@ -1520,9 +1530,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: TAGIHAN SUPPLIER (Manual Input)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderTagihanSupplier() {
     const tbody = document.getElementById('supplier-table-body');
     if (!tbody) return;
@@ -1537,7 +1547,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const statusBadgeClass = sb.status === 'Paid' ? 'status-paid' : 'status-unpaid';
       const statusLabel = sb.status === 'Paid' ? 'LUNAS' : 'BELUM LUNAS';
-      
+
       tr.innerHTML = `
         <td data-label="Supplier"><b>${sb.supplier}</b></td>
         <td data-label="Tanggal Invoice">${new Date(sb.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
@@ -1638,8 +1648,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = { supplier, date, due, amount, status };
 
       if (index !== '') {
+        payload.id = supplierBills[index].id; // preserve existing ID for Supabase update
         supplierBills[index] = payload;
       } else {
+        payload.id = crypto.randomUUID();
         supplierBills.unshift(payload);
       }
 
@@ -1651,9 +1663,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: HARGA PRODUK (Manual Input)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderHargaProdukCatalog() {
     const container = document.getElementById('product-price-container');
     if (!container) return;
@@ -1681,9 +1693,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: STOK GUDANG (Manual Input)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderStokGudang() {
     const container = document.getElementById('stok-metrics-container');
     if (!container) return;
@@ -1693,7 +1705,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentStock = stockData[p.code] || 0;
       const isLowStock = currentStock < 50;
       const lowStockTag = isLowStock ? '<span class="stok-mc-label" style="background: var(--red-light); color: var(--red);">STOK MENIPIS</span>' : '<span class="stok-mc-label">STOK AMAN</span>';
-      
+
       const card = document.createElement('div');
       card.className = 'stok-metric-card';
       card.innerHTML = `
@@ -1742,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const code = document.getElementById('stok-product-input').value;
       const qty = parseInt(document.getElementById('stok-qty-input').value);
-      
+
       stockData[code] = (stockData[code] || 0) + qty;
       saveState();
       closeStokModal();
@@ -1753,12 +1765,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: LAPORAN HARI INI
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderLaporanHariIni() {
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Update subtitle date description
     const formattedToday = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const subtitle = document.getElementById('hari-ini-subtitle');
@@ -1777,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (todayTx.length === 0) {
       todayTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada transaksi tercatat untuk hari ini.</td></tr>';
-      
+
       document.getElementById('today-val-sales').textContent = 'Rp 0';
       document.getElementById('today-qty-sales').textContent = '0';
       document.getElementById('today-val-cash').textContent = 'Rp 0';
@@ -1815,9 +1827,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: KELOLA SALESMAN (Admin Only)
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderKelolaSalesman() {
     if (activeRole !== 'admin') return;
 
@@ -1829,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const statusBadge = s.status === 'Active' ? 'badge green' : 'badge';
       const statusLabel = s.status === 'Active' ? 'AKTIF' : 'KELUAR';
-      
+
       tr.innerHTML = `
         <td data-label="Nama Salesman"><b>${s.name}</b></td>
         <td data-label="No WhatsApp">${s.phone}</td>
@@ -1928,12 +1940,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = { name, phone, status };
 
       if (index !== '') {
+        payload.id = salesmen[index].id; // preserve existing ID for Supabase update
         salesmen[index] = payload;
       } else {
         if (salesmen.find(s => s.name.toLowerCase() === name.toLowerCase())) {
           alert('Nama salesman ini sudah terdaftar!');
           return;
         }
+        payload.id = crypto.randomUUID();
         salesmen.push(payload);
       }
 
@@ -1946,9 +1960,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: SALES ORDER SYSTEM
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function renderSalesOrderModule() {
     renderOrderCatalog();
     renderShoppingCart();
@@ -1996,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const code = btn.getAttribute('data-code');
         const currentStock = stockData[code] || 0;
         const currentCartQty = activeCart[code] || 0;
-        
+
         if (currentCartQty + 1 > currentStock) {
           alert('Stok gudang tidak mencukupi untuk jumlah ini!');
           return;
@@ -2012,7 +2026,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.onclick = () => {
         const code = btn.getAttribute('data-code');
         const currentCartQty = activeCart[code] || 0;
-        
+
         if (currentCartQty > 0) {
           activeCart[code] = currentCartQty - 1;
           if (activeCart[code] === 0) delete activeCart[code];
@@ -2047,11 +2061,11 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedCodes.forEach(code => {
       const p = products.find(x => x.code === code);
       if (!p) return;
-      
+
       const qty = activeCart[code];
       const price = isTempo ? p.tempo_price : p.cash_price;
       const subtotal = qty * price;
-      
+
       totalVolume += qty;
       totalNominal += subtotal;
 
@@ -2116,10 +2130,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const qty = activeCart[code];
         const price = paymentType === 'Tempo' ? p.tempo_price : p.cash_price;
         const nominal = qty * price;
-        
+
         totalVolume += qty;
         totalNominal += nominal;
-        
+
         items.push({
           product_code: code,
           product_name: p.name,
@@ -2130,7 +2144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       const newOrder = {
-        id: 'ORD_' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        id: crypto.randomUUID(),
         date: new Date().toISOString().split('T')[0],
         salesman: salesmanName,
         customer: shopName,
@@ -2169,7 +2183,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.open(waUrl, '_blank');
 
       alert('Order berhasil dibuat dan disimpan! Membuka WhatsApp untuk kirim order ke admin...');
-      
+
       // Reset
       activeCart = {};
       orderCheckoutForm.reset();
@@ -2190,7 +2204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     salesOrders.forEach(o => {
       const tr = document.createElement('tr');
-      
+
       let statusBadgeClass = 'status-pending';
       let statusLabel = 'ORDER MASUK';
       if (o.status === 'Confirmed') {
@@ -2256,7 +2270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('inv-shop-name').textContent = o.customer;
     document.getElementById('inv-shop-address').textContent = o.customer_address;
     document.getElementById('inv-shop-phone').textContent = o.customer_phone;
-    
+
     const itemsTbody = document.getElementById('invoice-items-body');
     itemsTbody.innerHTML = '';
 
@@ -2354,7 +2368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Insert into official Gajah Mas main transaction registry
         o.items.forEach(item => {
           transactions.unshift({
-            id: 'tx_' + Date.now() + Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             salesman: o.salesman,
             date: o.date,
             customer: o.customer,
@@ -2377,40 +2391,118 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // NEW VIEW: PENGATURAN & BACKUP
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const btnExportBackup = document.getElementById('btn-export-backup');
+  const fileImportBackup = document.getElementById('file-import-backup');
+  const btnClearLocalData = document.getElementById('btn-clear-local-data');
+
+  if (btnExportBackup) {
+    btnExportBackup.onclick = () => {
+      const data = {
+        products,
+        transactions,
+        salesOrders,
+        salesmen,
+        stockData,
+        supplierBills
+      };
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gamas_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+  }
+
+  if (fileImportBackup) {
+    fileImportBackup.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          if (data.products && data.transactions) {
+            if (confirm('Peringatan: Tindakan ini akan menimpa data lokal saat ini. Lanjutkan?')) {
+              products = data.products || [];
+              transactions = data.transactions || [];
+              salesOrders = data.salesOrders || [];
+              salesmen = data.salesmen || [];
+              stockData = data.stockData || {};
+              supplierBills = data.supplierBills || [];
+              saveState();
+              alert('Restore data berhasil!');
+              window.location.reload();
+            }
+          } else {
+            alert('Format file JSON tidak valid untuk aplikasi ini.');
+          }
+        } catch (error) {
+          alert('Gagal membaca file JSON.');
+        }
+      };
+      reader.readAsText(file);
+      fileImportBackup.value = ''; // Reset input
+    };
+  }
+
+  if (btnClearLocalData) {
+    btnClearLocalData.onclick = () => {
+      if (confirm('PERINGATAN KRITIS: Seluruh data transaksi, stok, dan pengaturan di memori browser ini akan dihapus permanen. ANDA YAKIN?')) {
+        if (confirm('Ketik OK jika Anda benar-benar yakin sudah mendownload backup.')) {
+          localStorage.clear();
+          alert('Data lokal berhasil dibersihkan.');
+          window.location.reload();
+        }
+      }
+    };
+  }
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // BOOTSTRAP INITIALIZATION
-  // ════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function initApp() {
     if (activeRole) {
       viewLogin.style.display = 'none';
       appShell.style.display = 'flex';
       applyRoleUI();
       populateSalesmenSelectors();
-      
+
       // Ensure role fits active routing path
       const hash = window.location.hash;
       if (activeRole === 'admin' && (hash === '#/' || hash === '')) {
-         window.location.hash = '#/sales/seller/Jossy';
+        window.location.hash = '#/sales/seller/Jossy';
       } else if (activeRole === 'owner' && (
-        hash === '#/products' || 
-        hash === '#/daily_reports' || 
-        hash === '#/sales/new' || 
+        hash === '#/products' ||
+        hash === '#/daily_reports' ||
+        hash === '#/sales/new' ||
         hash === '#/kelola_sales'
       )) {
-         window.location.hash = '#/';
+        window.location.hash = '#/';
       } else {
         handleRoute();
       }
     } else {
       viewLogin.style.display = 'flex';
       appShell.style.display = 'none';
-      
+
       // Clear PIN
       currentPin = '';
       pinInput.value = '';
     }
   }
 
-  loadState();
-  initApp();
+  async function bootApp() {
+    await loadState();
+    initApp();
+  }
+  bootApp();
 });

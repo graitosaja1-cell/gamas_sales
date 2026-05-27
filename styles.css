@@ -853,8 +853,8 @@ body {
 }
 
 .badge.tempo {
-  background: var(--amber-light);
-  color: var(--amber);
+  background: #ffedd5;
+  color: #ea580c;
 }
 
 .badge.prod {
@@ -1726,7 +1726,8 @@ body {
   }
 
   body.print-invoice-mode .modal-backdrop {
-    display: none !important; /* Hide other backdrops */
+    display: none !important;
+    /* Hide other backdrops */
   }
 
   body.print-invoice-mode #order-detail-modal {
@@ -2861,6 +2862,7 @@ body {
     padding-bottom: 10pt;
     border-bottom: 3pt double #0f172a;
   }
+
   .print-header h2 {
     font-size: 18pt !important;
     font-weight: 800 !important;
@@ -2869,6 +2871,7 @@ body {
     margin-bottom: 4pt;
     color: #000 !important;
   }
+
   .print-header p {
     font-size: 10pt !important;
     color: #444 !important;
@@ -2891,7 +2894,8 @@ body {
   }
 
   .panel-header {
-    display: none !important; /* Hide panel header entirely on print, because we have print-header */
+    display: none !important;
+    /* Hide panel header entirely on print, because we have print-header */
   }
 
   .data-table {
@@ -2932,7 +2936,8 @@ body {
   }
 
   .page-header {
-    display: none !important; /* Hide page headers for print, as print-header takes over */
+    display: none !important;
+    /* Hide page headers for print, as print-header takes over */
   }
 
   /* === INVOICE / FAKTUR MODE === */
@@ -2950,7 +2955,7 @@ body {
     overflow: visible !important;
   }
 
-  body.print-invoice-mode .modal-backdrop#order-detail-modal > .modal {
+  body.print-invoice-mode .modal-backdrop#order-detail-modal>.modal {
     position: static !important;
     max-width: 100% !important;
     width: 100% !important;

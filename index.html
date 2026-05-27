@@ -1,19 +1,21 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Gajah Mas Sales Report System - Sistem laporan penjualan">
-  <title>Gajah Mas Sales System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gajah Mas - Sales & Distribution System</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-  <!-- ══════════════════════════════════════
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        VIEW: LOGIN / SECURE PIN SCREEN
-  ══════════════════════════════════════ -->
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   <div id="view-login" class="login-screen view-section active">
     <div class="login-card">
       <div class="login-logo">GM</div>
@@ -48,9 +50,9 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        APP SHELL (Visible after login)
-  ══════════════════════════════════════ -->
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   <div id="app-shell" class="app-shell" style="display: none;">
 
     <!-- LEFT SIDEBAR -->
@@ -105,6 +107,9 @@
         <a href="#/sales/new" class="sidebar-link admin-only" id="side-new-sale">
           <i data-lucide="plus-circle"></i> <span>Input Manual</span>
         </a>
+        <a href="#/pengaturan" class="sidebar-link owner-only" id="side-pengaturan">
+          <i data-lucide="settings"></i> <span>Pengaturan & Backup</span>
+        </a>
       </nav>
 
       <div class="sidebar-footer">
@@ -140,7 +145,7 @@
       <!-- MAIN CONTENT -->
       <main class="app-main" id="app-main">
 
-        <!-- ── VIEW 1: DASHBOARD (Owner Only) ── -->
+        <!-- â”€â”€ VIEW 1: DASHBOARD (Owner Only) â”€â”€ -->
         <section id="view-dashboard" class="view-section">
           <div class="page-header">
             <div>
@@ -174,7 +179,8 @@
               <div class="metric-card tempo">
                 <div class="metric-label">Omset Tempo</div>
                 <div class="metric-value large" id="dash-val-tempo">Rp 0</div>
-                <div class="metric-sub"><b id="dash-qty-tempo">0</b> krat (<span id="dash-pct-qty-tempo">0%</span> vol)
+                <div class="metric-sub"><b id="dash-qty-tempo">0</b> krat (<span id="dash-pct-qty-tempo">0%</span>
+                  vol)
                 </div>
                 <div class="metric-icon"><i data-lucide="credit-card"></i></div>
               </div>
@@ -215,7 +221,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 2: SELLER DETAIL / DATA TRANSAKSI (Owner & Admin) ── -->
+        <!-- â”€â”€ VIEW 2: SELLER DETAIL / DATA TRANSAKSI (Owner & Admin) â”€â”€ -->
         <section id="view-seller-detail" class="view-section">
           <div class="page-header">
             <div>
@@ -238,6 +244,10 @@
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="filter-group">
+              <label class="filter-label">Mencari Toko/Produk</label>
+              <input type="text" class="filter-control" id="filter-search-query" placeholder="Cari...">
+            </div>
+            <div class="filter-group">
               <label class="filter-label">Mulai</label>
               <input type="date" class="filter-control" id="filter-date-start">
             </div>
@@ -249,25 +259,12 @@
               <label class="filter-label">Produk</label>
               <select class="filter-control" id="filter-product">
                 <option value="ALL">Semua Produk</option>
-                <option value="FB200">FB200</option>
-                <option value="FB400">FB400</option>
-                <option value="FB800">FB800</option>
               </select>
             </div>
-            <div class="filter-group">
-              <label class="filter-label">Pembayaran</label>
-              <select class="filter-control" id="filter-payment">
-                <option value="ALL">Semua</option>
-                <option value="Cash">Cash</option>
-                <option value="Tempo">Tempo</option>
-              </select>
+            <div class="filter-group" style="flex: 0 0 auto;">
+              <label class="filter-label">&nbsp;</label>
+              <button class="btn btn-primary" id="btn-apply-filter" style="width: 100%;">Terapkan</button>
             </div>
-            <div class="filter-group" style="flex: 2;">
-              <label class="filter-label">Customer</label>
-              <input type="text" class="filter-control" id="filter-customer" placeholder="Cari nama...">
-            </div>
-            <button class="btn btn-secondary" id="btn-reset-filters" style="height: 34px;"><i
-                data-lucide="refresh-cw"></i></button>
           </div>
 
           <!-- Tabel Rincian -->
@@ -282,7 +279,7 @@
               </div>
             </div>
             <div class="print-header">
-              <h2 style="font-size: 1.1rem;">Laporan Penjualan – Gajah Mas</h2>
+              <h2 style="font-size: 1.1rem;">Laporan Penjualan â€“ Gajah Mas</h2>
               <p style="font-size: .75rem; color: #555;">Dicetak: <span id="print-date"></span></p>
             </div>
             <div class="table-wrap">
@@ -299,8 +296,23 @@
                     <th class="admin-only" style="text-align: center;">Aksi</th>
                   </tr>
                 </thead>
-                <tbody id="seller-daily-table-body"></tbody>
+                <tbody id="seller-daily-table-body">
+                  <!-- Populated via JS -->
+                </tbody>
               </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="pagination-controls"
+              style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 0.5rem 0;">
+              <button class="btn btn-secondary" id="btn-prev-page" disabled>
+                <i data-lucide="chevron-left"></i> Sebelumnya
+              </button>
+              <span id="pagination-info" style="font-size: .8rem; font-weight: 600; color: var(--text-2);">Halaman
+                1</span>
+              <button class="btn btn-secondary" id="btn-next-page">
+                Selanjutnya <i data-lucide="chevron-right"></i>
+              </button>
             </div>
           </div>
 
@@ -328,7 +340,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 3: SALES ORDER SYSTEM (All - offline + WA) ── -->
+        <!-- â”€â”€ VIEW 3: SALES ORDER SYSTEM (All - offline + WA) â”€â”€ -->
         <section id="view-sales-order" class="view-section">
           <div class="page-header">
             <div>
@@ -431,7 +443,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 4: LAPORAN HARI INI (All) ── -->
+        <!-- â”€â”€ VIEW 4: LAPORAN HARI INI (All) â”€â”€ -->
         <section id="view-hari-ini" class="view-section">
           <div class="page-header">
             <div>
@@ -485,7 +497,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 5: INFO REKENING (Manual Input) ── -->
+        <!-- â”€â”€ VIEW 5: INFO REKENING (Manual Input) â”€â”€ -->
         <section id="view-info-rekening" class="view-section">
           <div class="page-header">
             <div>
@@ -507,7 +519,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 6: TAGIHAN SUPPLIER (Manual Input) ── -->
+        <!-- â”€â”€ VIEW 6: TAGIHAN SUPPLIER (Manual Input) â”€â”€ -->
         <section id="view-tagihan-supplier" class="view-section">
           <div class="page-header">
             <div>
@@ -536,7 +548,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 7: HARGA PRODUK (Manual Input) ── -->
+        <!-- â”€â”€ VIEW 7: HARGA PRODUK (Manual Input) â”€â”€ -->
         <section id="view-harga-produk" class="view-section">
           <div class="page-header">
             <div>
@@ -556,7 +568,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 8: STOK GUDANG (Manual Input / Local integrated) ── -->
+        <!-- â”€â”€ VIEW 8: STOK GUDANG (Manual Input / Local integrated) â”€â”€ -->
         <section id="view-stok" class="view-section">
           <div class="page-header">
             <div>
@@ -581,7 +593,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 9: KELOLA SALESMAN (Admin Only) ── -->
+        <!-- â”€â”€ VIEW 9: KELOLA SALESMAN (Admin Only) â”€â”€ -->
         <section id="view-kelola-sales" class="view-section">
           <div class="page-header">
             <div>
@@ -609,7 +621,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 10: PRODUCTS CATALOG (Admin Only) ── -->
+        <!-- â”€â”€ VIEW 10: PRODUCTS CATALOG (Admin Only) â”€â”€ -->
         <section id="view-products" class="view-section">
           <div class="page-header">
             <div>
@@ -621,7 +633,7 @@
           <div class="product-list" id="products-list-container"></div>
         </section>
 
-        <!-- ── VIEW 11: UPLOAD EXCEL (Admin Only) ── -->
+        <!-- â”€â”€ VIEW 11: UPLOAD EXCEL (Admin Only) â”€â”€ -->
         <section id="view-daily-reports" class="view-section">
           <div class="page-header">
             <div>
@@ -676,7 +688,7 @@
           </div>
         </section>
 
-        <!-- ── VIEW 12: MANUAL ADD TRANSAKSI (Admin Only) ── -->
+        <!-- â”€â”€ VIEW 12: MANUAL ADD TRANSAKSI (Admin Only) â”€â”€ -->
         <section id="view-new-sale" class="view-section">
           <div class="page-header">
             <div>
@@ -747,6 +759,49 @@
           </div>
         </section>
 
+        <!-- â”€â”€ VIEW: PENGATURAN & BACKUP (Owner Only) â”€â”€ -->
+        <section id="view-pengaturan" class="view-section">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">Pengaturan & Backup Data</h2>
+              <p class="page-subtitle">Amankan data lokal sebelum migrasi sistem</p>
+            </div>
+          </div>
+          <div class="panel owner-only">
+            <div class="panel-header">
+              <div class="panel-title">Manajemen Data Lokal</div>
+            </div>
+            <div class="panel-body">
+              <p style="font-size: .8rem; margin-bottom: 1rem; color: var(--text-2);">Data saat ini tersimpan di memori
+                browser (localStorage). Sangat disarankan untuk mengunduh cadangan data Anda secara rutin.</p>
+
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;">
+                <button class="btn btn-primary" id="btn-export-backup">
+                  <i data-lucide="download"></i> Download Backup (JSON)
+                </button>
+                <div style="position: relative;">
+                  <input type="file" id="file-import-backup" accept=".json" style="display: none;">
+                  <button class="btn btn-secondary" id="btn-import-backup"
+                    onclick="document.getElementById('file-import-backup').click()">
+                    <i data-lucide="upload"></i> Restore Data dari JSON
+                  </button>
+                </div>
+              </div>
+
+              <div class="panel-title"
+                style="margin-bottom: .5rem; font-size: .85rem; border-top: var(--border); padding-top: 1.5rem;">Reset
+                Data</div>
+              <p style="font-size: .8rem; margin-bottom: 1rem; color: var(--red);">Tindakan ini akan menghapus seluruh
+                data dari memori browser lokal Anda secara permanen. Pastikan Anda sudah mengunduh Backup terlebih
+                dahulu.</p>
+              <button class="btn btn-ghost" id="btn-clear-local-data"
+                style="color: var(--red); border: 1px solid var(--red-border);">
+                <i data-lucide="alert-triangle"></i> Hapus Semua Data Lokal
+              </button>
+            </div>
+          </div>
+        </section>
+
       </main>
 
       <!-- FOOTER -->
@@ -757,9 +812,9 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        MODALS
-  ══════════════════════════════════════ -->
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 
   <!-- Modal: Edit Info Rekening (Admin) -->
   <div class="modal-backdrop" id="bank-modal">
@@ -1119,8 +1174,16 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lucide@0.354.0/dist/umd/lucide.min.js"></script>
-  <script src="initial_data.js"></script>
+  <!-- UI Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="app.js"></script>
   <script>
     document.addEventListener('change', function (e) {
       if (e.target && e.target.id === 'export-periode-type') {
@@ -1147,7 +1210,18 @@
       if (printDateEl) printDateEl.textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     });
   </script>
-  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(registration => {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
+  </script>
 </body>
 
 </html>
