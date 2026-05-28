@@ -2,7 +2,7 @@
   "name": "Gajah Mas Sales System",
   "short_name": "Gajah Mas",
   "description": "Sistem Laporan Penjualan & Distribusi Gajah Mas",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1d4ed8",

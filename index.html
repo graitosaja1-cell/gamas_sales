@@ -259,6 +259,14 @@
                 <option value="ALL">Semua Produk</option>
               </select>
             </div>
+            <div class="filter-group">
+              <label class="filter-label">Pembayaran</label>
+              <select class="filter-control" id="filter-payment">
+                <option value="ALL">Semua</option>
+                <option value="Cash">Cash</option>
+                <option value="Tempo">Tempo</option>
+              </select>
+            </div>
             <div class="filter-group" style="flex: 0 0 auto;">
               <label class="filter-label">&nbsp;</label>
               <button class="btn btn-primary" id="btn-apply-filter" style="width: 100%;">Terapkan</button>
@@ -476,6 +484,45 @@
             <div class="panel-header">
               <div class="panel-title">Daftar Penjualan Hari Ini</div>
             </div>
+            
+            <div class="filter-bar" style="border-bottom: var(--border); border-radius: 0;">
+              <div class="filter-group">
+                <label class="filter-label">Cari Customer</label>
+                <input type="text" class="filter-control" id="today-filter-search" placeholder="Cari...">
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Salesman</label>
+                <select class="filter-control" id="today-filter-salesman">
+                  <option value="ALL">Semua</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Produk</label>
+                <select class="filter-control" id="today-filter-product">
+                  <option value="ALL">Semua</option>
+                  <option value="FB200">FB200</option>
+                  <option value="FB400">FB400</option>
+                  <option value="FB800">FB800</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Pembayaran</label>
+                <select class="filter-control" id="today-filter-payment">
+                  <option value="ALL">Semua</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Tempo">Tempo</option>
+                </select>
+              </div>
+              <div class="filter-group" style="flex: 0 0 auto;">
+                <label class="filter-label">&nbsp;</label>
+                <button class="btn btn-secondary" id="today-btn-reset-filter" style="width: 100%;">Reset</button>
+              </div>
+            </div>
+            
+            <div id="today-filtered-summary" class="alert alert-info" style="display: none; border-radius: 0; margin: 0; padding: .5rem 1rem; font-size: .8rem; align-items: center; gap: .5rem;">
+              <!-- Inserted via JS -->
+            </div>
+
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
@@ -656,6 +703,9 @@
           <div id="upload-preview-area" style="display: none;">
             <div class="alert alert-success">
               <i data-lucide="check-circle"></i> File siap diproses. Silakan tinjau data di bawah.
+            </div>
+            <div id="upload-skipped-alert" class="alert alert-warning" style="display: none; margin-bottom: 1rem; align-items: flex-start; gap: .5rem;">
+              <!-- Skipped details populated by JS -->
             </div>
             <div class="panel">
               <div class="panel-header">

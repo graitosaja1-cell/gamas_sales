@@ -31,15 +31,37 @@ document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
 
   // --- LOAD / SAVE STATE (SUPABASE) ---
+  async function loadAllTransactions() {
+    let allTx = [];
+    const pageSize = 1000;
+    let from = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allTx = allTx.concat(data);
+        from += pageSize;
+        if (data.length < pageSize) hasMore = false;
+      } else {
+        hasMore = false;
+      }
+    }
+    return allTx;
+  }
+
   async function loadState() {
     try {
-      const [prodRes, stockRes, salesRes, billRes, orderRes, txRes] = await Promise.all([
+      const [prodRes, stockRes, salesRes, billRes, orderRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('stock_data').select('*'),
         supabase.from('salesmen').select('*'),
         supabase.from('supplier_bills').select('*'),
-        supabase.from('sales_orders').select('*').order('date', { ascending: false }),
-        supabase.from('transactions').select('*').order('date', { ascending: false }).limit(2000)
+        supabase.from('sales_orders').select('*').order('date', { ascending: false })
       ]);
 
       if (prodRes.data && prodRes.data.length > 0) products = prodRes.data;
@@ -52,7 +74,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (salesRes.data && salesRes.data.length > 0) salesmen = salesRes.data;
       if (billRes.data && billRes.data.length > 0) supplierBills = billRes.data;
       if (orderRes.data && orderRes.data.length > 0) salesOrders = orderRes.data;
-      if (txRes.data && txRes.data.length > 0) transactions = txRes.data;
+
+      // Load ALL transactions (no limit)
+      try {
+        const allTx = await loadAllTransactions();
+        if (allTx.length > 0) transactions = allTx;
+      } catch (txErr) {
+        console.error('Gagal memuat semua transaksi, mencoba fallback...', txErr);
+        // Fallback: load with larger limit
+        const txRes = await supabase.from('transactions').select('*').order('date', { ascending: false }).limit(10000);
+        if (txRes.data && txRes.data.length > 0) transactions = txRes.data;
+      }
+
+      // Load offline queue if any
+      const offlineQueue = localStorage.getItem('gamas_offline_queue');
+      if (offlineQueue) {
+        const queuedTx = JSON.parse(offlineQueue);
+        if (queuedTx.length > 0 && navigator.onLine) {
+          await syncOfflineQueue(queuedTx);
+        }
+      }
 
       const savedBank = localStorage.getItem('gamas_bank_info');
       if (savedBank) {
@@ -67,13 +108,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (e) {
       console.error("Supabase load error:", e);
-      alert("Gagal terhubung ke Supabase. Pastikan koneksi internet stabil.");
+      // Try loading from localStorage cache if offline
+      const cachedTx = localStorage.getItem('gamas_tx_cache');
+      if (cachedTx) {
+        transactions = JSON.parse(cachedTx);
+        console.log('Loaded transactions from offline cache:', transactions.length);
+      }
+      if (navigator.onLine) {
+        alert("Gagal terhubung ke Supabase. Pastikan koneksi internet stabil.");
+      }
     }
   }
 
+  // Offline queue sync
+  async function syncOfflineQueue(queuedTx) {
+    try {
+      for (let i = 0; i < queuedTx.length; i += 500) {
+        const chunk = queuedTx.slice(i, i + 500);
+        const res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
+        if (res.error) {
+          console.error('Offline sync error:', res.error);
+          return; // Keep queue for next attempt
+        }
+      }
+      localStorage.removeItem('gamas_offline_queue');
+      console.log(`Offline queue synced: ${queuedTx.length} transaksi`);
+      updateOnlineIndicator();
+    } catch (e) {
+      console.error('Sync offline queue failed:', e);
+    }
+  }
+
+  function addToOfflineQueue(txArray) {
+    const existing = JSON.parse(localStorage.getItem('gamas_offline_queue') || '[]');
+    const combined = [...existing, ...txArray];
+    localStorage.setItem('gamas_offline_queue', JSON.stringify(combined));
+  }
+
+  // Online/Offline indicator
+  function updateOnlineIndicator() {
+    const dot = document.getElementById('sidebar-role-dot');
+    const statusEl = document.querySelector('.role-status-badge');
+    const offlineQueue = JSON.parse(localStorage.getItem('gamas_offline_queue') || '[]');
+
+    if (dot && statusEl) {
+      if (navigator.onLine) {
+        dot.style.background = 'var(--green, #22c55e)';
+        statusEl.innerHTML = `<span class="role-dot" id="sidebar-role-dot" style="background: var(--green, #22c55e);"></span> Online`;
+        if (offlineQueue.length > 0) {
+          statusEl.innerHTML += ` <span style="font-size:.6rem;color:var(--amber);">(${offlineQueue.length} antri sync)</span>`;
+        }
+      } else {
+        dot.style.background = 'var(--red, #ef4444)';
+        statusEl.innerHTML = `<span class="role-dot" id="sidebar-role-dot" style="background: var(--red, #ef4444);"></span> Offline`;
+        if (offlineQueue.length > 0) {
+          statusEl.innerHTML += ` <span style="font-size:.6rem;color:var(--amber);">(${offlineQueue.length} antri)</span>`;
+        }
+      }
+    }
+  }
+
+  window.addEventListener('online', async () => {
+    updateOnlineIndicator();
+    const offlineQueue = JSON.parse(localStorage.getItem('gamas_offline_queue') || '[]');
+    if (offlineQueue.length > 0) {
+      await syncOfflineQueue(offlineQueue);
+    }
+  });
+  window.addEventListener('offline', () => updateOnlineIndicator());
+
   async function saveState() {
+    // Cache transactions locally for offline access
+    try {
+      localStorage.setItem('gamas_tx_cache', JSON.stringify(transactions.slice(0, 5000)));
+    } catch(cacheErr) {
+      console.warn('Cache transaksi lokal gagal (mungkin penuh):', cacheErr);
+    }
+
+    if (!navigator.onLine) {
+      // Save to offline queue instead
+      localStorage.setItem('gamas_bank_info', JSON.stringify(bankAccounts));
+      console.log('Offline mode: Data disimpan secara lokal.');
+      updateOnlineIndicator();
+      return;
+    }
+
     try {
       const errors = [];
+      let savedCount = 0;
+      let failedCount = 0;
 
       if (products.length > 0) {
         const res = await supabase.from('products').upsert(products, { onConflict: 'code' });
@@ -109,12 +232,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.error) errors.push('sales_orders: ' + res.error.message);
       }
 
-      // Save all transactions
+      // Save all transactions with retry
       if (transactions.length > 0) {
         for (let i = 0; i < transactions.length; i += 500) {
           const chunk = transactions.slice(i, i + 500);
-          const res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
-          if (res.error) errors.push('transactions: ' + res.error.message);
+          let res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
+          if (res.error) {
+            // Retry once
+            console.warn(`Chunk ${i}-${i+500} gagal, retrying...`, res.error.message);
+            await new Promise(r => setTimeout(r, 1000));
+            res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
+            if (res.error) {
+              errors.push(`transactions chunk ${i}-${i+chunk.length}: ` + res.error.message);
+              failedCount += chunk.length;
+            } else {
+              savedCount += chunk.length;
+            }
+          } else {
+            savedCount += chunk.length;
+          }
         }
       }
 
@@ -122,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (errors.length > 0) {
         console.error('Supabase save errors:', errors);
-        alert('Peringatan: Beberapa data gagal tersimpan ke database.\n' + errors.join('\n'));
+        alert(`Peringatan: Beberapa data gagal tersimpan ke database.\nBerhasil: ${savedCount} | Gagal: ${failedCount}\n\n` + errors.join('\n'));
       }
     } catch (e) {
       console.error("Supabase save error", e);
@@ -761,6 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateStartInput = document.getElementById('filter-date-start');
     const dateEndInput = document.getElementById('filter-date-end');
     const productSelect = document.getElementById('filter-product');
+    const paymentSelect = document.getElementById('filter-payment');
     const searchInput = document.getElementById('filter-search-query') || document.getElementById('filter-customer');
     const btnReset = document.getElementById('btn-apply-filter') || document.getElementById('btn-reset-filters');
 
@@ -776,18 +913,21 @@ document.addEventListener('DOMContentLoaded', () => {
     dateStartInput.value = minDate;
     dateEndInput.value = maxDate;
     if (productSelect) productSelect.value = 'ALL';
+    if (paymentSelect) paymentSelect.value = 'ALL';
     if (searchInput) searchInput.value = '';
 
     function applyFilters() {
       const start = dateStartInput.value;
       const end = dateEndInput.value;
       const selProd = productSelect ? productSelect.value : 'ALL';
+      const selPayment = paymentSelect ? paymentSelect.value : 'ALL';
       const querySearch = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
       filteredTxList = sellerTxList.filter(t => {
         if (start && t.date < start) return false;
         if (end && t.date > end) return false;
         if (selProd !== 'ALL' && t.product_code !== selProd) return false;
+        if (selPayment !== 'ALL' && t.payment_type !== selPayment) return false;
         if (querySearch && !t.customer.toLowerCase().includes(querySearch) && !t.product_name.toLowerCase().includes(querySearch)) return false;
         return true;
       });
@@ -812,7 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pageInfo = document.getElementById('pagination-info');
 
       if (btnPrev && btnNext && pageInfo) {
-        pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages}`;
+        pageInfo.textContent = `Halaman ${currentPage} dari ${totalPages} (${filteredTxList.length} transaksi)`;
         btnPrev.disabled = currentPage === 1;
         btnNext.disabled = currentPage === totalPages;
 
@@ -855,6 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dateStartInput) dateStartInput.onchange = () => { window.currentTxPage = 1; applyFilters(); };
     if (dateEndInput) dateEndInput.onchange = () => { window.currentTxPage = 1; applyFilters(); };
     if (productSelect) productSelect.onchange = () => { window.currentTxPage = 1; applyFilters(); };
+    if (paymentSelect) paymentSelect.onchange = () => { window.currentTxPage = 1; applyFilters(); };
     if (searchInput) searchInput.oninput = () => { window.currentTxPage = 1; applyFilters(); };
 
     if (btnReset) btnReset.onclick = () => {
@@ -862,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dateStartInput.value = minDate;
       dateEndInput.value = maxDate;
       if (productSelect) productSelect.value = 'ALL';
+      if (paymentSelect) paymentSelect.value = 'ALL';
       if (searchInput) searchInput.value = '';
       applyFilters();
     };
@@ -1125,6 +1267,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('chk-sheet').classList.add('valid');
 
         let parsedRows = [];
+        let skippedRows = 0;
+        let skippedDetails = [];
 
         sheets.forEach(sheetName => {
           const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
@@ -1146,20 +1290,65 @@ document.addEventListener('DOMContentLoaded', () => {
           const colNom = headers.findIndex(h => h.includes('nominal'));
           const colPay = headers.findIndex(h => h.includes('pembayaran'));
           
-          if ([colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) return; // Skip sheets with incomplete columns
+          if ([colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) {
+            skippedDetails.push(`Sheet "${sheetName}": Kolom wajib tidak ditemukan`);
+            return;
+          }
 
           for (let r = headerRowIdx + 1; r < rawJson.length; r++) {
             const row = rawJson[r];
-            if (!row || (!row[colQty] && !row[colProd])) continue;
+            if (!row) continue;
+
+            // Improved validation: skip truly empty rows but try to capture partial data
+            const hasQty = row[colQty] && parseInt(row[colQty]) > 0;
+            const hasProd = row[colProd] && row[colProd].toString().trim() !== '';
+            const hasNom = row[colNom] && parseFloat(row[colNom]) > 0;
+
+            if (!hasQty && !hasProd && !hasNom) continue; // Truly empty row
+
+            // Warn about partial data but still try to include
+            if (!hasQty || !hasNom) {
+              const custName = row[colCust] ? row[colCust].toString().trim() : '?';
+              skippedRows++;
+              skippedDetails.push(`Sheet "${sheetName}" baris ${r+1}: Customer "${custName}" - Qty atau Nominal kosong/0`);
+              continue; // Skip rows with zero qty or nominal
+            }
+
             let dateVal = row[colDate];
             if (dateVal instanceof Date) {
-              dateVal = dateVal.toISOString().split('T')[0];
+              // Fix timezone issue: use UTC components
+              const y = dateVal.getFullYear();
+              const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+              const d = String(dateVal.getDate()).padStart(2, '0');
+              dateVal = `${y}-${m}-${d}`;
             } else if (typeof dateVal === 'number') {
-              const base = new Date(1899, 11, 30);
-              dateVal = new Date(base.getTime() + Math.floor(dateVal) * 86400000).toISOString().split('T')[0];
+              // Excel serial date - fixed calculation
+              const utcDays = Math.floor(dateVal) - 25569; // days since 1970-01-01
+              const utcDate = new Date(utcDays * 86400000);
+              const y = utcDate.getUTCFullYear();
+              const m = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+              const d = String(utcDate.getUTCDate()).padStart(2, '0');
+              dateVal = `${y}-${m}-${d}`;
             } else {
               dateVal = dateVal ? dateVal.toString().trim() : '';
+              // Try to parse various date formats
+              if (dateVal && !dateVal.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const parsed = new Date(dateVal);
+                if (!isNaN(parsed.getTime())) {
+                  const y = parsed.getFullYear();
+                  const m = String(parsed.getMonth() + 1).padStart(2, '0');
+                  const d = String(parsed.getDate()).padStart(2, '0');
+                  dateVal = `${y}-${m}-${d}`;
+                }
+              }
             }
+
+            if (!dateVal) {
+              skippedRows++;
+              skippedDetails.push(`Sheet "${sheetName}" baris ${r+1}: Tanggal kosong`);
+              continue;
+            }
+
             const prodName = row[colProd] ? row[colProd].toString().trim() : '';
             const paymentVal = row[colPay] ? row[colPay].toString().trim() : 'Tempo';
             parsedRows.push({
@@ -1178,15 +1367,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (parsedRows.length === 0) {
-          alert('Tidak ada data transaksi yang valid ditemukan! Periksa format kolom Excel.');
+          let msg = 'Tidak ada data transaksi yang valid ditemukan! Periksa format kolom Excel.';
+          if (skippedDetails.length > 0) {
+            msg += '\n\nBaris yang dilewati:\n' + skippedDetails.slice(0, 10).join('\n');
+            if (skippedDetails.length > 10) msg += `\n...dan ${skippedDetails.length - 10} lainnya.`;
+          }
+          alert(msg);
           return;
         }
+
+        // Show skipped row warnings
+        if (skippedRows > 0) {
+          console.warn('Baris dilewati saat upload:', skippedDetails);
+        }
+
         document.getElementById('chk-cols').classList.add('valid');
         pendingUploadData = parsedRows;
+        pendingUploadData._skippedRows = skippedRows;
+        pendingUploadData._skippedDetails = skippedDetails;
         showExcelUploadPreview();
       } catch (err) {
         console.error(err);
-        alert('Gagal membaca file Excel!');
+        alert('Gagal membaca file Excel! Detail error: ' + err.message);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1198,7 +1400,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!previewArea || !previewTbody) return;
 
     previewTbody.innerHTML = '';
-    document.getElementById('preview-data-title').textContent = `Pratinjau Data (${pendingUploadData.length.toLocaleString('id-ID')} Transaksi)`;
+
+    // Show skipped rows warning if any
+    const skippedRows = pendingUploadData._skippedRows || 0;
+    const skippedDetails = pendingUploadData._skippedDetails || [];
+    let titleText = `Pratinjau Data (${pendingUploadData.length.toLocaleString('id-ID')} Transaksi)`;
+    if (skippedRows > 0) {
+      titleText += ` — ${skippedRows} baris dilewati`;
+    }
+    document.getElementById('preview-data-title').textContent = titleText;
+
+    // Show skipped rows alert
+    const alertEl = document.getElementById('upload-skipped-alert');
+    if (alertEl) {
+      if (skippedRows > 0) {
+        alertEl.style.display = 'flex';
+        alertEl.innerHTML = `<i data-lucide="alert-triangle" style="width:16px;height:16px;"></i>
+          <div><strong>${skippedRows} baris dilewati</strong> karena data tidak lengkap (Qty/Nominal kosong).
+          ${skippedDetails.length > 0 ? '<br><small style="color:var(--text-3);">' + skippedDetails.slice(0, 5).join('<br>') + (skippedDetails.length > 5 ? '<br>...dan lainnya' : '') + '</small>' : ''}
+          </div>`;
+      } else {
+        alertEl.style.display = 'none';
+      }
+    }
+
     pendingUploadData.slice(0, 30).forEach(t => {
       const tr = document.createElement('tr');
       const paymentBadge = t.payment_type.toLowerCase();
@@ -1221,6 +1446,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     previewArea.style.display = 'block';
     document.getElementById('excel-drop-zone').style.display = 'none';
+    lucide.createIcons();
+  }
+
+  // Duplicate detection helper
+  function getTxFingerprint(t) {
+    return `${(t.salesman||'').toLowerCase()}|${t.date}|${(t.customer||'').toLowerCase()}|${t.product_code}|${t.qty}|${t.nominal}`;
   }
 
   function cancelExcelUpload() {
@@ -1235,6 +1466,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cc) cc.classList.remove('valid');
     const fi = document.getElementById('excel-file-input');
     if (fi) fi.value = '';
+    const alertEl = document.getElementById('upload-skipped-alert');
+    if (alertEl) alertEl.style.display = 'none';
   }
 
   const btnCancelUpload = document.getElementById('btn-cancel-upload');
@@ -1242,11 +1475,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnCommitUpload = document.getElementById('btn-commit-upload');
   if (btnCommitUpload) {
-    btnCommitUpload.onclick = () => {
+    btnCommitUpload.onclick = async () => {
       if (!pendingUploadData || pendingUploadData.length === 0) return;
-      transactions = [...transactions, ...pendingUploadData];
-      saveState();
-      alert(`Sukses! ${pendingUploadData.length.toLocaleString('id-ID')} transaksi baru berhasil ditambahkan.`);
+
+      // Duplicate detection
+      const existingFingerprints = new Set(transactions.map(t => getTxFingerprint(t)));
+      const newData = [];
+      let duplicateCount = 0;
+
+      pendingUploadData.forEach(t => {
+        const fp = getTxFingerprint(t);
+        if (existingFingerprints.has(fp)) {
+          duplicateCount++;
+        } else {
+          newData.push(t);
+          existingFingerprints.add(fp); // Prevent intra-upload duplicates too
+        }
+      });
+
+      if (newData.length === 0) {
+        alert(`Semua ${duplicateCount} transaksi sudah ada di database (duplikat). Tidak ada data baru yang ditambahkan.`);
+        cancelExcelUpload();
+        return;
+      }
+
+      if (duplicateCount > 0) {
+        const proceed = confirm(`Ditemukan ${duplicateCount} data duplikat yang akan dilewati.\n\n${newData.length} transaksi baru akan ditambahkan.\n\nLanjutkan?`);
+        if (!proceed) return;
+      }
+
+      // Add new data
+      transactions = [...transactions, ...newData];
+
+      // Save with progress indicator
+      const commitBtn = document.getElementById('btn-commit-upload');
+      if (commitBtn) {
+        commitBtn.disabled = true;
+        commitBtn.innerHTML = '<i data-lucide="loader" class="spin"></i> Menyimpan...';
+      }
+
+      if (navigator.onLine) {
+        await saveState();
+      } else {
+        addToOfflineQueue(newData);
+        saveState();
+      }
+
+      const skippedRows = pendingUploadData._skippedRows || 0;
+      let resultMsg = `✅ Berhasil!\n\n`;
+      resultMsg += `• ${newData.length.toLocaleString('id-ID')} transaksi baru ditambahkan\n`;
+      if (duplicateCount > 0) resultMsg += `• ${duplicateCount} data duplikat dilewati\n`;
+      if (skippedRows > 0) resultMsg += `• ${skippedRows} baris Excel dilewati (data tidak lengkap)\n`;
+      if (!navigator.onLine) resultMsg += `\n⚠️ Mode Offline: Data disimpan lokal, akan sync saat online.`;
+
+      alert(resultMsg);
+
+      if (commitBtn) {
+        commitBtn.disabled = false;
+        commitBtn.innerHTML = '<i data-lucide="save"></i> Simpan Data';
+      }
+
       cancelExcelUpload();
       window.location.hash = '#/sales/seller/Jossy';
     };
@@ -1776,54 +2064,116 @@ document.addEventListener('DOMContentLoaded', () => {
     const subtitle = document.getElementById('hari-ini-subtitle');
     if (subtitle) subtitle.textContent = `Laporan transaksi per tanggal ${formattedToday}`;
 
-    let totalVolume = 0;
-    let totalSalesVal = 0;
-    let cashIncomingVal = 0;
-    let tempoIncomingVal = 0;
-
     const todayTbody = document.getElementById('today-table-body');
     if (!todayTbody) return;
-    todayTbody.innerHTML = '';
 
+    // Get all transactions for today
     const todayTx = transactions.filter(t => t.date === today);
 
-    if (todayTx.length === 0) {
-      todayTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada transaksi tercatat untuk hari ini.</td></tr>';
-
-      document.getElementById('today-val-sales').textContent = 'Rp 0';
-      document.getElementById('today-qty-sales').textContent = '0';
-      document.getElementById('today-val-cash').textContent = 'Rp 0';
-      document.getElementById('today-val-tempo').textContent = 'Rp 0';
-      return;
-    }
-
+    // Always calculate totals from ALL today's data (unfiltered) for metric cards
+    let totalVolume = 0, totalSalesVal = 0, cashIncomingVal = 0, tempoIncomingVal = 0;
     todayTx.forEach(t => {
       totalVolume += t.qty;
       totalSalesVal += t.nominal;
-      if (t.payment_type === 'Cash') {
-        cashIncomingVal += t.nominal;
-      } else {
-        tempoIncomingVal += t.nominal;
-      }
-
-      const tr = document.createElement('tr');
-      const badgeClass = t.payment_type.toLowerCase();
-      tr.innerHTML = `
-        <td data-label="Salesman"><b>${t.salesman}</b></td>
-        <td data-label="Customer">${t.customer}</td>
-        <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
-        <td data-label="Qty">${t.qty}</td>
-        <td data-label="Harga">${formatIDR(t.price)}</td>
-        <td data-label="Nominal" style="font-weight: 600; color: var(--accent);">${formatIDR(t.nominal)}</td>
-        <td data-label="Pembayaran"><span class="badge ${badgeClass}">${t.payment_type}</span></td>
-      `;
-      todayTbody.appendChild(tr);
+      if (t.payment_type === 'Cash') cashIncomingVal += t.nominal;
+      else tempoIncomingVal += t.nominal;
     });
 
     document.getElementById('today-val-sales').textContent = formatIDR(totalSalesVal);
     document.getElementById('today-qty-sales').textContent = totalVolume.toLocaleString('id-ID');
     document.getElementById('today-val-cash').textContent = formatIDR(cashIncomingVal);
     document.getElementById('today-val-tempo').textContent = formatIDR(tempoIncomingVal);
+
+    // Populate salesman filter options dynamically
+    const salesmanFilter = document.getElementById('today-filter-salesman');
+    if (salesmanFilter) {
+      const prevVal = salesmanFilter.value;
+      salesmanFilter.innerHTML = '<option value="ALL">Semua Salesman</option>';
+      const activeSalesmen = salesmen.filter(s => s.status && s.status.trim().toLowerCase() === 'active');
+      activeSalesmen.forEach(s => {
+        salesmanFilter.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+      if (prevVal) salesmanFilter.value = prevVal;
+    }
+
+    // Apply filters
+    function applyTodayFilters() {
+      const searchVal = (document.getElementById('today-filter-search')?.value || '').toLowerCase().trim();
+      const salesmanVal = document.getElementById('today-filter-salesman')?.value || 'ALL';
+      const productVal = document.getElementById('today-filter-product')?.value || 'ALL';
+      const paymentVal = document.getElementById('today-filter-payment')?.value || 'ALL';
+
+      const filtered = todayTx.filter(t => {
+        if (searchVal && !t.customer.toLowerCase().includes(searchVal) && !t.salesman.toLowerCase().includes(searchVal)) return false;
+        if (salesmanVal !== 'ALL' && t.salesman !== salesmanVal) return false;
+        if (productVal !== 'ALL' && t.product_code !== productVal) return false;
+        if (paymentVal !== 'ALL' && t.payment_type !== paymentVal) return false;
+        return true;
+      });
+
+      // Update filtered summary
+      const filteredSummary = document.getElementById('today-filtered-summary');
+      if (filteredSummary) {
+        const isFiltered = searchVal || salesmanVal !== 'ALL' || productVal !== 'ALL' || paymentVal !== 'ALL';
+        if (isFiltered) {
+          let filteredTotal = 0;
+          filtered.forEach(t => filteredTotal += t.nominal);
+          filteredSummary.style.display = 'flex';
+          filteredSummary.innerHTML = `<i data-lucide="filter" style="width:14px;height:14px;"></i> Menampilkan ${filtered.length} dari ${todayTx.length} transaksi (Total filter: <strong>${formatIDR(filteredTotal)}</strong>)`;
+          lucide.createIcons();
+        } else {
+          filteredSummary.style.display = 'none';
+        }
+      }
+
+      todayTbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        todayTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada transaksi yang sesuai filter.</td></tr>';
+        return;
+      }
+
+      filtered.forEach(t => {
+        const tr = document.createElement('tr');
+        const badgeClass = t.payment_type.toLowerCase();
+        tr.innerHTML = `
+          <td data-label="Salesman"><b>${t.salesman}</b></td>
+          <td data-label="Customer">${t.customer}</td>
+          <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
+          <td data-label="Qty">${t.qty}</td>
+          <td data-label="Harga">${formatIDR(t.price)}</td>
+          <td data-label="Nominal" style="font-weight: 600; color: var(--accent);">${formatIDR(t.nominal)}</td>
+          <td data-label="Pembayaran"><span class="badge ${badgeClass}">${t.payment_type}</span></td>
+        `;
+        todayTbody.appendChild(tr);
+      });
+    }
+
+    // Wire up filter events
+    const todaySearch = document.getElementById('today-filter-search');
+    const todaySalesman = document.getElementById('today-filter-salesman');
+    const todayProduct = document.getElementById('today-filter-product');
+    const todayPayment = document.getElementById('today-filter-payment');
+    const todayReset = document.getElementById('today-btn-reset-filter');
+
+    if (todaySearch) todaySearch.oninput = applyTodayFilters;
+    if (todaySalesman) todaySalesman.onchange = applyTodayFilters;
+    if (todayProduct) todayProduct.onchange = applyTodayFilters;
+    if (todayPayment) todayPayment.onchange = applyTodayFilters;
+    if (todayReset) todayReset.onclick = () => {
+      if (todaySearch) todaySearch.value = '';
+      if (todaySalesman) todaySalesman.value = 'ALL';
+      if (todayProduct) todayProduct.value = 'ALL';
+      if (todayPayment) todayPayment.value = 'ALL';
+      applyTodayFilters();
+    };
+
+    // Initial render
+    applyTodayFilters();
+
+    if (todayTx.length === 0) {
+      todayTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada transaksi tercatat untuk hari ini.</td></tr>';
+    }
   }
 
 
@@ -2475,6 +2825,7 @@ document.addEventListener('DOMContentLoaded', () => {
       appShell.style.display = 'flex';
       applyRoleUI();
       populateSalesmenSelectors();
+      updateOnlineIndicator();
 
       // Ensure role fits active routing path
       const hash = window.location.hash;
