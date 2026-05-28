@@ -701,6 +701,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('dash-val-tempo').textContent = formatIDR(valTempo);
 
     document.getElementById('dash-total-profit').textContent = formatIDR(totalProfit);
+    const profitQtyEl = document.getElementById('dash-profit-qty');
+    if (profitQtyEl) profitQtyEl.textContent = totalQty.toLocaleString('id-ID');
     document.getElementById('dash-sub-profit-cash').textContent = formatIDR(profitCash);
     document.getElementById('dash-sub-profit-tempo').textContent = formatIDR(profitTempo);
 
@@ -1631,12 +1633,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tx-edit-qty').value = t.qty;
     document.getElementById('tx-edit-salesman').value = t.salesman;
     document.getElementById('tx-edit-payment').value = t.payment_type;
+    document.getElementById('tx-edit-nominal').value = t.nominal;
 
     const prodSelect = document.getElementById('tx-edit-product');
     prodSelect.innerHTML = '<option value="" disabled>Pilih Produk</option>';
     products.forEach(p => {
       prodSelect.innerHTML += `<option value="${p.code}" ${p.code === t.product_code ? 'selected' : ''}>${p.code} - ${p.name}</option>`;
     });
+
+    // Auto-calc logic
+    function autoCalcNominal() {
+      const prodCode = prodSelect.value;
+      const p = products.find(x => x.code === prodCode);
+      if (!p) return;
+      const qty = parseInt(document.getElementById('tx-edit-qty').value) || 0;
+      const paymentType = document.getElementById('tx-edit-payment').value;
+      const price = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
+      document.getElementById('tx-edit-nominal').value = qty * price;
+    }
+
+    prodSelect.onchange = autoCalcNominal;
+    document.getElementById('tx-edit-qty').oninput = autoCalcNominal;
+    document.getElementById('tx-edit-payment').onchange = autoCalcNominal;
 
     txModal.classList.add('active');
   }
@@ -1662,6 +1680,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const qty = parseInt(document.getElementById('tx-edit-qty').value);
       const paymentType = document.getElementById('tx-edit-payment').value;
       const price = paymentType === 'Cash' ? p.cash_price : p.tempo_price;
+      const nominal = parseFloat(document.getElementById('tx-edit-nominal').value);
 
       t.date = document.getElementById('tx-edit-date').value;
       t.customer = document.getElementById('tx-edit-customer').value.toUpperCase();
@@ -1671,7 +1690,7 @@ document.addEventListener('DOMContentLoaded', () => {
       t.payment_type = paymentType;
       t.salesman = document.getElementById('tx-edit-salesman').value;
       t.price = price;
-      t.nominal = qty * price;
+      t.nominal = nominal;
 
       saveState();
       closeTxModal();

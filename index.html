@@ -185,7 +185,7 @@
               <div class="metric-card profit">
                 <div class="metric-label">Total Profit</div>
                 <div class="metric-value large" id="dash-total-profit">Rp 0</div>
-                <div class="metric-sub">Cash: <b id="dash-sub-profit-cash">Rp 0</b> | Tempo: <b
+                <div class="metric-sub">Vol: <b id="dash-profit-qty">0</b> krat | Cash: <b id="dash-sub-profit-cash">Rp 0</b> | Tempo: <b
                     id="dash-sub-profit-tempo">Rp 0</b></div>
                 <div class="metric-icon"><i data-lucide="trending-up"></i></div>
               </div>
@@ -473,7 +473,7 @@
               <div class="metric-icon"><i data-lucide="banknote"></i></div>
             </div>
             <div class="metric-card tempo">
-              <div class="metric-label">Uang Masuk Harian (Tempo)</div>
+              <div class="metric-label">Penjualan Tempo</div>
               <div class="metric-value large" id="today-val-tempo">Rp 0</div>
               <div class="metric-sub">Tagihan berjalan dicatat</div>
               <div class="metric-icon"><i data-lucide="credit-card"></i></div>
@@ -1200,7 +1200,7 @@
               </select>
             </div>
           </div>
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom: .75rem;">
             <div class="form-group">
               <label class="form-label">Qty (Krat)</label>
               <input type="number" class="form-control" id="tx-edit-qty" min="1" required>
@@ -1211,6 +1211,11 @@
                 <!-- Populated by JS -->
               </select>
             </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nominal (Rp)</label>
+            <input type="number" class="form-control" id="tx-edit-nominal" required>
+            <small style="color:var(--text-3); font-size: 0.75rem;">(Otomatis dihitung berdasarkan Qty & Harga, tapi bisa diedit manual)</small>
           </div>
         </div>
         <div class="modal-foot">
