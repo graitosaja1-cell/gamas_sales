@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cache transactions locally for offline access
     try {
       localStorage.setItem('gamas_tx_cache', JSON.stringify(transactions.slice(0, 5000)));
-    } catch(cacheErr) {
+    } catch (cacheErr) {
       console.warn('Cache transaksi lokal gagal (mungkin penuh):', cacheErr);
     }
 
@@ -239,11 +239,11 @@ document.addEventListener('DOMContentLoaded', () => {
           let res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
           if (res.error) {
             // Retry once
-            console.warn(`Chunk ${i}-${i+500} gagal, retrying...`, res.error.message);
+            console.warn(`Chunk ${i}-${i + 500} gagal, retrying...`, res.error.message);
             await new Promise(r => setTimeout(r, 1000));
             res = await supabase.from('transactions').upsert(chunk, { onConflict: 'id' });
             if (res.error) {
-              errors.push(`transactions chunk ${i}-${i+chunk.length}: ` + res.error.message);
+              errors.push(`transactions chunk ${i}-${i + chunk.length}: ` + res.error.message);
               failedCount += chunk.length;
             } else {
               savedCount += chunk.length;
@@ -861,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="psc-desc">${formatIDR(valTempo)}</div>
           </div>
           <div class="profit-split-card total-p">
-            <div class="psc-label">Total Profit â€“ ${currentSeller.toLowerCase() === 'all' ? 'SEMUA SALES' : currentSeller.toUpperCase()}</div>
+            <div class="psc-label">Total Profit - ${currentSeller.toLowerCase() === 'all' ? 'SEMUA SALES' : currentSeller.toUpperCase()}</div>
             <div class="psc-amount" style="color: var(--green);">${formatIDR(totalProfit)}</div>
             <div class="psc-desc">${totalQty.toLocaleString('id-ID')} krat | ${formatIDR(totalSales)} omset</div>
           </div>
@@ -1283,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           if (headerRowIdx === -1) return; // Skip sheets without Sales header
-          
+
           const headers = rawJson[headerRowIdx].map(h => h ? h.toString().toLowerCase() : '');
           const colDate = headers.findIndex(h => h.includes('tanggal'));
           const colCust = headers.findIndex(h => h.includes('customer'));
@@ -1292,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const colPrice = headers.findIndex(h => h.includes('harga'));
           const colNom = headers.findIndex(h => h.includes('nominal'));
           const colPay = headers.findIndex(h => h.includes('pembayaran'));
-          
+
           if ([colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) {
             skippedDetails.push(`Sheet "${sheetName}": Kolom wajib tidak ditemukan`);
             return;
@@ -1313,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hasQty || !hasNom) {
               const custName = row[colCust] ? row[colCust].toString().trim() : '?';
               skippedRows++;
-              skippedDetails.push(`Sheet "${sheetName}" baris ${r+1}: Customer "${custName}" - Qty atau Nominal kosong/0`);
+              skippedDetails.push(`Sheet "${sheetName}" baris ${r + 1}: Customer "${custName}" - Qty atau Nominal kosong/0`);
               continue; // Skip rows with zero qty or nominal
             }
 
@@ -1348,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!dateVal) {
               skippedRows++;
-              skippedDetails.push(`Sheet "${sheetName}" baris ${r+1}: Tanggal kosong`);
+              skippedDetails.push(`Sheet "${sheetName}" baris ${r + 1}: Tanggal kosong`);
               continue;
             }
 
@@ -1454,7 +1454,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Duplicate detection helper
   function getTxFingerprint(t) {
-    return `${(t.salesman||'').toLowerCase()}|${t.date}|${(t.customer||'').toLowerCase()}|${t.product_code}|${t.qty}|${t.nominal}`;
+    return `${(t.salesman || '').toLowerCase()}|${t.date}|${(t.customer || '').toLowerCase()}|${t.product_code}|${t.qty}|${t.nominal}`;
   }
 
   function cancelExcelUpload() {
