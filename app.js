@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selControl = document.getElementById('seller-select-control');
     if (selControl) {
       const prevVal = (selControl.value || currentSeller || '').toLowerCase();
-      selControl.innerHTML = '';
+      selControl.innerHTML = '<option value="all">Semua Sales</option>';
       activeSalesmen.forEach(s => {
         selControl.innerHTML += `<option value="${s.name}">${s.name}</option>`;
       });
@@ -827,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sellerTxList = [];
 
     transactions.forEach(t => {
-      if (t.salesman.toLowerCase() !== currentSeller.toLowerCase()) return;
+      if (currentSeller.toLowerCase() !== 'all' && t.salesman.toLowerCase() !== currentSeller.toLowerCase()) return;
       const p = prodMap[t.product_code];
       const buyPrice = p ? p.buy_price : 0;
       const profit = t.nominal - (t.qty * buyPrice);
@@ -861,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="psc-desc">${formatIDR(valTempo)}</div>
           </div>
           <div class="profit-split-card total-p">
-            <div class="psc-label">Total Profit â€“ ${currentSeller.toUpperCase()}</div>
+            <div class="psc-label">Total Profit â€“ ${currentSeller.toLowerCase() === 'all' ? 'SEMUA SALES' : currentSeller.toUpperCase()}</div>
             <div class="psc-amount" style="color: var(--green);">${formatIDR(totalProfit)}</div>
             <div class="psc-desc">${totalQty.toLocaleString('id-ID')} krat | ${formatIDR(totalSales)} omset</div>
           </div>
@@ -966,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyTbody.innerHTML = '';
 
       if (paginatedList.length === 0) {
-        dailyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-2);padding:1.5rem">Tidak ada data.</td></tr>';
+        dailyTbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-2);padding:1.5rem">Tidak ada data.</td></tr>';
         return;
       }
 
@@ -977,6 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td data-label="Tanggal">${formattedDate}</td>
+          <td data-label="Salesman">${t.salesman}</td>
           <td data-label="Customer"><b>${t.customer}</b></td>
           <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
           <td data-label="QTY">${t.qty}</td>
