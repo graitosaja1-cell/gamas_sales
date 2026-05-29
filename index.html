@@ -542,7 +542,6 @@
             </div>
           </div>
         </section>
-
         <!-- â”€â”€ VIEW 5: INFO REKENING (Manual Input) â”€â”€ -->
         <section id="view-info-rekening" class="view-section">
           <div class="page-header">
@@ -565,27 +564,87 @@
           </div>
         </section>
 
-        <!-- â”€â”€ VIEW 6: TAGIHAN SUPPLIER (Manual Input) â”€â”€ -->
+        <!-- â”€â”€ VIEW 6: TAGIHAN SUPPLIER (Manual Input + Excel Upload) â”€â”€ -->
         <section id="view-tagihan-supplier" class="view-section">
           <div class="page-header">
             <div>
               <h2 class="page-title">Tagihan Supplier</h2>
-              <p class="page-subtitle">Kelola dan pantau tagihan supplier masuk (Manual Input)</p>
+              <p class="page-subtitle">Kelola dan pantau tagihan supplier masuk</p>
             </div>
-            <button class="btn btn-primary admin-only" id="btn-new-tagihan"><i data-lucide="plus"></i> Tambah
-              Tagihan</button>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="btn-new-tagihan"><i data-lucide="plus"></i> Tambah
+                Tagihan</button>
+              <button class="btn btn-success" id="btn-upload-tagihan-excel"><i data-lucide="upload-cloud"></i> Upload Excel</button>
+            </div>
           </div>
+
+          <!-- Upload Excel Zone for Tagihan -->
+          <div id="tagihan-upload-section" style="display: none;">
+            <div class="upload-zone" id="tagihan-excel-drop-zone">
+              <input type="file" id="tagihan-excel-file-input" accept=".xlsx,.xls" style="display:none">
+              <div class="upload-icon-wrap"><i data-lucide="upload-cloud"></i></div>
+              <div class="upload-h">Seret & Lepaskan File Excel Tagihan</div>
+              <div class="upload-sub">Atau klik untuk menelusuri file (.xlsx / .xls)</div>
+              <div class="upload-tags">
+                <span class="upload-tag"><i data-lucide="check" style="width:10px;height:10px;"></i> Format: TANGGAL JATUH TEMPO | SUPPLYER | NOMINAL | TOTAL | REK | KET</span>
+              </div>
+            </div>
+
+            <div id="tagihan-upload-preview" style="display: none;">
+              <div class="alert alert-success">
+                <i data-lucide="check-circle"></i> File berhasil diproses. Silakan tinjau data di bawah sebelum menyimpan.
+              </div>
+              <div class="panel">
+                <div class="panel-header">
+                  <div class="panel-title" id="tagihan-preview-title">Pratinjau Tagihan</div>
+                  <div class="btn-row">
+                    <button class="btn btn-secondary" id="btn-cancel-tagihan-upload">Batal</button>
+                    <button class="btn btn-success" id="btn-commit-tagihan-upload"><i data-lucide="save"></i> Simpan Semua Tagihan</button>
+                  </div>
+                </div>
+                <div class="table-wrap" style="max-height: 400px;">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Jatuh Tempo</th>
+                        <th>Supplier</th>
+                        <th>Nominal</th>
+                        <th>Rekening</th>
+                        <th>Keterangan</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tagihan-upload-preview-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-bar" style="margin-bottom: 1rem;">
+            <div class="filter-group" style="flex: 1; max-width: 300px;">
+              <i data-lucide="search" style="position: absolute; left: 10px; top: 10px; width: 16px; height: 16px; color: var(--text-3);"></i>
+              <input type="text" class="form-control" id="filter-tagihan-search" placeholder="Cari Supplier..." style="padding-left: 2.2rem; width: 100%;">
+            </div>
+            <div class="filter-group">
+              <select class="form-control" id="filter-tagihan-status">
+                <option value="All">Semua Status</option>
+                <option value="Unpaid">Belum Lunas</option>
+                <option value="Paid">Lunas</option>
+              </select>
+            </div>
+          </div>
+
           <div class="panel">
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
                     <th>Nama Supplier</th>
-                    <th>Tanggal Tagihan</th>
                     <th>Jatuh Tempo</th>
                     <th>Nominal</th>
+                    <th>Rekening</th>
                     <th>Status</th>
-                    <th class="admin-only" style="text-align: center;">Aksi</th>
+                    <th style="text-align: center;">Aksi</th>
                   </tr>
                 </thead>
                 <tbody id="supplier-table-body"></tbody>
@@ -910,11 +969,7 @@
             <input type="text" class="form-control" id="supplier-name-input" required>
           </div>
           <div class="form-grid" style="margin-bottom: .75rem;">
-            <div class="form-group">
-              <label class="form-label">Tanggal Tagihan</label>
-              <input type="date" class="form-control" id="supplier-date-input" required>
-            </div>
-            <div class="form-group">
+            <div class="form-group" style="grid-column: 1 / -1;">
               <label class="form-label">Jatuh Tempo</label>
               <input type="date" class="form-control" id="supplier-due-input" required>
             </div>
@@ -925,12 +980,16 @@
               <input type="number" class="form-control" id="supplier-amount-input" required>
             </div>
             <div class="form-group">
-              <label class="form-label">Status</label>
-              <select class="form-control" id="supplier-status-input">
-                <option value="Unpaid">Belum Lunas</option>
-                <option value="Paid">Lunas</option>
-              </select>
+              <label class="form-label">Rekening / Keterangan</label>
+              <input type="text" class="form-control" id="supplier-rekening-input" placeholder="Contoh: ESCROW">
             </div>
+          </div>
+          <div class="form-group" style="margin-top: .75rem;">
+            <label class="form-label">Status</label>
+            <select class="form-control" id="supplier-status-input">
+              <option value="Unpaid">Belum Lunas</option>
+              <option value="Paid">Lunas</option>
+            </select>
           </div>
         </div>
         <div class="modal-foot">

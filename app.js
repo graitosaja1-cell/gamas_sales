@@ -72,7 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
       if (salesRes.data && salesRes.data.length > 0) salesmen = salesRes.data;
-      if (billRes.data && billRes.data.length > 0) supplierBills = billRes.data;
+      if (billRes.data && billRes.data.length > 0) {
+        supplierBills = billRes.data.map(b => {
+          if (b.supplier && b.supplier.includes(' || REK: ')) {
+            const parts = b.supplier.split(' || REK: ');
+            b.supplier = parts[0];
+            b.rekening = parts[1];
+          }
+          return b;
+        });
+      }
       if (orderRes.data && orderRes.data.length > 0) salesOrders = orderRes.data;
 
       // Load ALL transactions (no limit)
@@ -220,8 +229,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (supplierBills.length > 0) {
         const billsPayload = supplierBills.map(b => {
-          if (!b.id) b.id = crypto.randomUUID();
-          return b;
+          const payload = { ...b };
+          if (!payload.id) payload.id = crypto.randomUUID();
+          if (payload.rekening) {
+            payload.supplier = payload.supplier + ' || REK: ' + payload.rekening;
+          }
+          delete payload.rekening;
+          return payload;
         });
         const res = await supabase.from('supplier_bills').upsert(billsPayload, { onConflict: 'id' });
         if (res.error) errors.push('supplier_bills: ' + res.error.message);
@@ -1304,9 +1318,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!row) continue;
 
             // Improved validation: skip truly empty rows but try to capture partial data
-            const hasQty = row[colQty] && parseInt(row[colQty]) > 0;
+            const parsedQty = parseInt(row[colQty]);
+            const hasQty = !isNaN(parsedQty) && parsedQty !== 0;
+            
             const hasProd = row[colProd] && row[colProd].toString().trim() !== '';
-            const hasNom = row[colNom] && parseFloat(row[colNom]) > 0;
+            
+            const parsedNom = parseFloat(row[colNom]);
+            const hasNom = !isNaN(parsedNom) && parsedNom !== 0;
 
             if (!hasQty && !hasProd && !hasNom) continue; // Truly empty row
 
@@ -1314,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!hasQty || !hasNom) {
               const custName = row[colCust] ? row[colCust].toString().trim() : '?';
               skippedRows++;
-              skippedDetails.push(`Sheet "${sheetName}" baris ${r + 1}: Customer "${custName}" - Qty atau Nominal kosong/0`);
+              skippedDetails.push(`Sheet "${sheetName}" baris ${r + 1}: Customer "${custName}" - Qty atau Nominal kosong/0/tidak valid`);
               continue; // Skip rows with zero qty or nominal
             }
 
@@ -1491,18 +1509,28 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCommitUpload.onclick = async () => {
       if (!pendingUploadData || pendingUploadData.length === 0) return;
 
-      // Duplicate detection & replacement
+      // Duplicate detection & replacement (with index for intra-day duplicates)
       const txMap = new Map();
+      const fpCounts = {};
+
       transactions.forEach((t, index) => {
-        txMap.set(getTxFingerprint(t), index);
+        const baseFp = getTxFingerprint(t);
+        fpCounts[baseFp] = (fpCounts[baseFp] || 0) + 1;
+        const fp = baseFp + '|' + fpCounts[baseFp];
+        txMap.set(fp, index);
       });
 
       let updatedCount = 0;
       let addedCount = 0;
       const newData = [];
+      
+      const newFpCounts = {};
 
       pendingUploadData.forEach(t => {
-        const fp = getTxFingerprint(t);
+        const baseFp = getTxFingerprint(t);
+        newFpCounts[baseFp] = (newFpCounts[baseFp] || 0) + 1;
+        const fp = baseFp + '|' + newFpCounts[baseFp];
+
         if (txMap.has(fp)) {
           // Replace existing (update)
           const index = txMap.get(fp);
@@ -1861,34 +1889,61 @@ document.addEventListener('DOMContentLoaded', () => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // NEW VIEW: TAGIHAN SUPPLIER (Manual Input)
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  let isTagihanFiltersSetup = false;
+  function setupTagihanFilters() {
+    if (isTagihanFiltersSetup) return;
+    isTagihanFiltersSetup = true;
+    const searchInput = document.getElementById('filter-tagihan-search');
+    const statusSelect = document.getElementById('filter-tagihan-status');
+    if (searchInput) searchInput.addEventListener('input', renderTagihanSupplier);
+    if (statusSelect) statusSelect.addEventListener('change', renderTagihanSupplier);
+  }
+
   function renderTagihanSupplier() {
     const tbody = document.getElementById('supplier-table-body');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (supplierBills.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada tagihan supplier terdaftar.</td></tr>';
-      return;
+    setupTagihanFilters();
+
+    const searchInput = document.getElementById('filter-tagihan-search');
+    const statusSelect = document.getElementById('filter-tagihan-status');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+    const statusFilter = statusSelect ? statusSelect.value : 'All';
+
+    let filteredBills = supplierBills;
+
+    if (searchTerm) {
+      filteredBills = filteredBills.filter(sb => sb.supplier && sb.supplier.toLowerCase().includes(searchTerm));
+    }
+    
+    if (statusFilter !== 'All') {
+      filteredBills = filteredBills.filter(sb => sb.status === statusFilter);
     }
 
-    supplierBills.forEach((sb, idx) => {
-      const tr = document.createElement('tr');
-      const statusBadgeClass = sb.status === 'Paid' ? 'status-paid' : 'status-unpaid';
-      const statusLabel = sb.status === 'Paid' ? 'LUNAS' : 'BELUM LUNAS';
+    if (filteredBills.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:1.5rem">Tidak ada tagihan supplier yang sesuai.</td></tr>';
+    } else {
+      filteredBills.forEach((sb) => {
+        const originalIdx = supplierBills.indexOf(sb);
+        const tr = document.createElement('tr');
+        const statusBadgeClass = sb.status === 'Paid' ? 'status-paid' : 'status-unpaid';
+        const statusLabel = sb.status === 'Paid' ? 'LUNAS' : 'BELUM LUNAS';
 
-      tr.innerHTML = `
-        <td data-label="Supplier"><b>${sb.supplier}</b></td>
-        <td data-label="Tanggal Invoice">${new Date(sb.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-        <td data-label="Jatuh Tempo">${new Date(sb.due).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-        <td data-label="Nominal" style="font-weight: 700; color: var(--accent);">${formatIDR(sb.amount)}</td>
-        <td data-label="Status"><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
-        <td data-label="Aksi" class="admin-only" style="text-align: center; display: ${activeRole === 'admin' ? '' : 'none'};">
-          <button class="btn-ghost btn-edit-supplier" data-index="${idx}" title="Edit"><i data-lucide="edit-2"></i></button>
-          <button class="btn-ghost btn-del-supplier" data-index="${idx}" style="color:var(--red);" title="Hapus"><i data-lucide="trash-2"></i></button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+        tr.innerHTML = `
+          <td data-label="Supplier"><b>${sb.supplier}</b></td>
+          <td data-label="Jatuh Tempo">${new Date(sb.due).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+          <td data-label="Nominal" style="font-weight: 700; color: var(--accent);">${formatIDR(sb.amount)}</td>
+          <td data-label="Rekening">${sb.rekening || '-'}</td>
+          <td data-label="Status"><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
+          <td data-label="Aksi" style="text-align: center;">
+            <button class="btn-ghost btn-edit-supplier" data-index="${originalIdx}" title="Edit"><i data-lucide="edit-2"></i></button>
+            <button class="btn-ghost btn-del-supplier" data-index="${originalIdx}" style="color:var(--red);" title="Hapus"><i data-lucide="trash-2"></i></button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
     lucide.createIcons();
     setupSupplierEventHandlers();
@@ -1916,6 +1971,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
     });
+
+    setupTagihanExcelUpload();
   }
 
   // Supplier modal bindings
@@ -1928,9 +1985,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const inputIdx = document.getElementById('supplier-edit-index');
     const inputName = document.getElementById('supplier-name-input');
-    const inputDate = document.getElementById('supplier-date-input');
     const inputDue = document.getElementById('supplier-due-input');
     const inputAmount = document.getElementById('supplier-amount-input');
+    const inputRekening = document.getElementById('supplier-rekening-input');
     const inputStatus = document.getElementById('supplier-status-input');
 
     document.getElementById('supplier-modal-title').textContent =
@@ -1940,16 +1997,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const sb = supplierBills[index];
       inputIdx.value = index;
       inputName.value = sb.supplier;
-      inputDate.value = sb.date;
       inputDue.value = sb.due;
       inputAmount.value = sb.amount;
+      if (inputRekening) inputRekening.value = sb.rekening || '';
       inputStatus.value = sb.status;
     } else {
       inputIdx.value = '';
       inputName.value = '';
-      inputDate.value = new Date().toISOString().split('T')[0];
       inputDue.value = new Date().toISOString().split('T')[0];
       inputAmount.value = '';
+      if (inputRekening) inputRekening.value = '';
       inputStatus.value = 'Unpaid';
     }
   }
@@ -1968,12 +2025,13 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const index = document.getElementById('supplier-edit-index').value;
       const supplier = document.getElementById('supplier-name-input').value.toUpperCase().trim();
-      const date = document.getElementById('supplier-date-input').value;
       const due = document.getElementById('supplier-due-input').value;
       const amount = parseFloat(document.getElementById('supplier-amount-input').value);
+      const rekening = document.getElementById('supplier-rekening-input') ? document.getElementById('supplier-rekening-input').value : '';
       const status = document.getElementById('supplier-status-input').value;
 
-      const payload = { supplier, date, due, amount, status };
+      const date = index !== '' ? supplierBills[index].date : new Date().toISOString().split('T')[0];
+      const payload = { supplier, date, due, amount, rekening, status };
 
       if (index !== '') {
         payload.id = supplierBills[index].id; // preserve existing ID for Supabase update
@@ -1988,6 +2046,169 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTagihanSupplier();
       alert('Data tagihan supplier disimpan!');
     };
+  }
+
+  let isTagihanExcelSetup = false;
+  function setupTagihanExcelUpload() {
+    if (isTagihanExcelSetup) return;
+    isTagihanExcelSetup = true;
+
+    const uploadBtn = document.getElementById('btn-upload-tagihan-excel');
+    const uploadSection = document.getElementById('tagihan-upload-section');
+    const dropZone = document.getElementById('tagihan-excel-drop-zone');
+    const fileInput = document.getElementById('tagihan-excel-file-input');
+    const previewSection = document.getElementById('tagihan-upload-preview');
+    const previewBody = document.getElementById('tagihan-upload-preview-body');
+    const cancelBtn = document.getElementById('btn-cancel-tagihan-upload');
+    const commitBtn = document.getElementById('btn-commit-tagihan-upload');
+    
+    let parsedTagihanData = [];
+
+    if (uploadBtn) {
+      uploadBtn.onclick = () => {
+        if (uploadSection.style.display === 'none' || uploadSection.style.display === '') {
+          uploadSection.style.display = 'block';
+        } else {
+          uploadSection.style.display = 'none';
+        }
+      };
+    }
+
+    if (!dropZone) return;
+
+    dropZone.onclick = () => fileInput.click();
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleTagihanExcelFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    if (fileInput) {
+      fileInput.onchange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handleTagihanExcelFile(e.target.files[0]);
+        }
+      };
+    }
+
+    function handleTagihanExcelFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          parsedTagihanData = [];
+          
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i];
+            if (!row || row.length < 3) continue;
+            
+            const dueRaw = row[0];
+            const supplier = row[1];
+            const nominal = parseFloat(row[2]);
+            const rekening = row[4] || '';
+            const ket = row[5] || '';
+            
+            if (supplier && !isNaN(nominal) && typeof supplier === 'string' && supplier.toUpperCase().trim() !== 'SUPPLYER') {
+              let dueDate = new Date().toISOString().split('T')[0];
+              if (dueRaw) {
+                if (typeof dueRaw === 'number') {
+                  const d = new Date(Math.round((dueRaw - 25569) * 86400 * 1000));
+                  dueDate = d.toISOString().split('T')[0];
+                } else if (typeof dueRaw === 'string') {
+                  const parts = dueRaw.trim().split('/');
+                  if (parts.length === 3) {
+                    dueDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                  }
+                }
+              }
+
+              let status = 'Unpaid';
+              if (ket.toUpperCase().includes('LUNAS')) {
+                status = 'Paid';
+              }
+              
+              let combinedRek = rekening;
+              if (ket && status !== 'Paid') {
+                  combinedRek = combinedRek ? `${combinedRek} (${ket})` : ket;
+              }
+
+              parsedTagihanData.push({
+                id: crypto.randomUUID(),
+                supplier: supplier.trim().toUpperCase(),
+                date: new Date().toISOString().split('T')[0],
+                due: dueDate,
+                amount: nominal,
+                rekening: combinedRek.trim(),
+                status: status
+              });
+            }
+          }
+          
+          if (parsedTagihanData.length > 0) {
+            renderTagihanPreview();
+          } else {
+            alert('Tidak ditemukan data tagihan yang valid di file Excel ini.');
+          }
+        } catch (error) {
+          console.error('Error reading Excel:', error);
+          alert('Gagal membaca file Excel.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      fileInput.value = '';
+    }
+
+    function renderTagihanPreview() {
+      previewBody.innerHTML = '';
+      parsedTagihanData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.due}</td>
+          <td>${item.supplier}</td>
+          <td>${formatIDR(item.amount)}</td>
+          <td>${item.rekening || '-'}</td>
+          <td><span class="badge ${item.status === 'Paid' ? 'status-paid' : 'status-unpaid'}">${item.status === 'Paid' ? 'LUNAS' : 'BELUM LUNAS'}</span></td>
+        `;
+        previewBody.appendChild(tr);
+      });
+      previewSection.style.display = 'block';
+    }
+
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        previewSection.style.display = 'none';
+        parsedTagihanData = [];
+      };
+    }
+
+    if (commitBtn) {
+      commitBtn.onclick = () => {
+        supplierBills = [...parsedTagihanData, ...supplierBills];
+        saveState();
+        previewSection.style.display = 'none';
+        uploadSection.style.display = 'none';
+        parsedTagihanData = [];
+        renderTagihanSupplier();
+        alert('Data tagihan berhasil diimpor!');
+      };
+    }
   }
 
 
