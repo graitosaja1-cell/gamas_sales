@@ -1,32 +1,48 @@
-halaman paling awal janganlangsung lihat angka angka....contoh gambt ini....di klik baru terbuka angka angka sales.... 
+### SYSTEM ROLE & CONTEXT
+You are an expert full-stack developer specializing in lightweight, practical web applications for MSMEs. We are building the "Gamas" app. I want to implement two main features in the backend/frontend: a system for managing Settings & Backups, and an Automated WhatsApp Reminder for customer credit/receivables (tempo barang).
 
-Di cards halaman awal per sales…missal JOSSY ada CASH Rp4.874899   di tambahin kata PROFIT CASH    PROFIT TEMPO
-Halaman data sudah okhalaman awal buka kurang
-Di cards sales CASH Rp9748…. ITU kata nya ditambah…jadi    PROFIT CASH……sebelahe PROFIT TEMPO
-di buat ada sidebar di kiri dengan menu menu
+Keep the code clean, modular, and easy to maintain.
 
-Info rekenin (MANUAL INPUT)
-Tagihan Suplyer  (  MANUAL INPUT)
-Harga Produk  ( MANUAL INPUT)
-Stok ( SELANJUTNYA AKAN TERINTREGASI DENGAN APLIKASI DATA STOK GUDAN)
-Hari ini     (ISINYA PENJUALAN SALES HARI INI ,  UANG MASUK HARIAN )
-Di halaman Admin ada menu Sales…isinya Nama Sales No Hp…terus bisa ada sales baru inputnya bagaimana….jika sales keluar ..berarti kan diganti nama datanya
+---
 
-DI FOOTER  tulisan ditambahin  Gajah Mas Sales Report System, by Nadiff &team@2026   kalau bisa di letakkan di tengah
-Masuk web tidak semua orang  bisa ..di buat pin…walaupun owner
+### FEATURE 1: SETTINGS & BACKUP MANAGEMENT
 
+1. **UI/UX Requirement:**
+   - Create a clean interface for the "Pengaturan & Backup" section.
+   - Include a "Backup Data" button and a "Restore Data" file input.
+2. **Functional Requirement:**
+   - **Backup:** When the user clicks "Backup Data", export the local application data (e.g., SQLite database, local storage, or JSON file depending on our stack) into a downloadable `.json` or `.sql` file.
+   - **Restore:** Allow the user to upload the backup file to restore the application state. Add a confirmation prompt before overwriting existing data.
 
+---
 
-- SALES OREDER SYSTEM
+### FEATURE 2: AUTOMATED WHATSAPP RECEIVABLE REMINDER (TEMPO BARANG)
 
-SALES KLIK KLIK PRODUK...JUMLAH NOMINAL OTOMATIS NAMPAK...,
-TULIS NAMA TOKO ALAMAT NO HP...SIMPAN DAN KIRIM , 
-DATA TERSIMPAN DI HP,,TERKIRIM JIKA ADA SINYA...,
-DATA DITERIMA ADMIN DI WA DAN APLIKASI ,KOMPUTER DAN HP.....,  
-ADMIN CEKING..KONFIRMASI JIKA PERLU...MASUKAN DATA ORDER KE FAKTUR KOMPUTER..PRINT......
-FAKTUR YG TELAH DI PPRINT DI SERAHKAN BAGIAN GUDANG ....
-BAGIAN GUDANG MENYERAHKAN BARANG UTK DIKIRIM......
-BAGIAN GUDANG INPUT BARANG KELUAR ..
-BANK DATA STOK DI ADMIN OTOMATIS BERKURANG.......
+1. **Data Structure Update:**
+   - Ensure the Customer/Order data model includes these fields:
+     * `customer_phone`: String (WhatsApp format, e.g., 628xxx)
+     * `due_date` (Tanggal Jatuh Tempo): Date
+     * `payment_status`: String ('Lunas' / 'Belum Bayar')
+     * `last_reminder_sent`: Date/Nullable
 
-pw supabase: Ip1MZn3cBMAMu30x
+2. **Core Logic (The "3-Day Grace Period" Rule):**
+   - Create a background function or an automated check that filters for accounts where:
+     * `payment_status` == 'Belum Bayar'
+     * The current date is exactly **3 days after** the `due_date` (Current Date - Due Date = 3 Days).
+   - If a customer matches this condition, trigger a WhatsApp reminder action.
+
+3. **WhatsApp Integration Approach:**
+   - Provide a practical, low-cost solution for a WhatsApp system:
+     * **Option A (Manual Click-to-Chat):** Generate a list of "Overdue Reminders" in the admin dashboard with a "Kirim WA" button. Clicking this button opens a WhatsApp Web link (`https://wa.me/phone?text=urlencoded_text`) with a pre-filled template so the admin can send it manually.
+     * **Option B (Automated Background Script):** Sketch a lightweight backend cron-job template/function that could later connect to a WhatsApp API Gateway (like Baileys, FonePace, or similar webhooks).
+   *Please provide Option A first for immediate use, and comment out Option B for future scaling.*
+
+4. **Message Template (Indonesian):**
+   "Halo Kak [Nama Customer], ini dari Gamas. Mengingatkan kembali untuk nota belanjaan tanggal [Tanggal Nota] yang jatuh tempo pada [Tanggal Jatuh Tempo] sebesar [Total Tagihan] saat ini belum tercatat lunas. Mohon segera melakukan penyelesaian pembayaran ya Kak. Terima kasih banyak 🙏"
+
+---
+
+### OUTPUT EXPECTED
+1. Code implementation for the Settings & Backup UI and its handler functions.
+2. Code implementation for the Due Date filtering logic and the WhatsApp URL generator/sender function.
+3. Brief explanation of where to paste or integrate this code into the existing structure.

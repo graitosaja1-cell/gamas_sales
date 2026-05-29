@@ -1286,6 +1286,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const headers = rawJson[headerRowIdx].map(h => h ? h.toString().toLowerCase() : '');
           const colDate = headers.findIndex(h => h.includes('tanggal'));
+          const colSales = headers.findIndex(h => h.includes('sales'));
           const colCust = headers.findIndex(h => h.includes('customer'));
           const colProd = headers.findIndex(h => h.includes('produk'));
           const colQty = headers.findIndex(h => h.includes('qty'));
@@ -1354,9 +1355,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const prodName = row[colProd] ? row[colProd].toString().trim() : '';
             const paymentVal = row[colPay] ? row[colPay].toString().trim() : 'Tempo';
+            
+            let salesmanName = sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase();
+            if (colSales !== -1 && row[colSales]) {
+              const sVal = row[colSales].toString().trim();
+              if (sVal) {
+                salesmanName = sVal.charAt(0).toUpperCase() + sVal.slice(1).toLowerCase();
+              }
+            }
+
             parsedRows.push({
               id: crypto.randomUUID(),
-              salesman: sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase(),
+              salesman: salesmanName,
               date: dateVal,
               customer: row[colCust] ? row[colCust].toString().trim() : '-',
               product_name: prodName,
@@ -1452,9 +1462,9 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
-  // Duplicate detection helper
+  // Unique key for replacing data
   function getTxFingerprint(t) {
-    return `${(t.salesman || '').toLowerCase()}|${t.date}|${(t.customer || '').toLowerCase()}|${t.product_code}|${t.qty}|${t.nominal}`;
+    return `${(t.salesman || '').toLowerCase()}|${t.date}|${(t.customer || '').toLowerCase()}|${t.product_code}`;
   }
 
   function cancelExcelUpload() {
@@ -1481,34 +1491,44 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCommitUpload.onclick = async () => {
       if (!pendingUploadData || pendingUploadData.length === 0) return;
 
-      // Duplicate detection
-      const existingFingerprints = new Set(transactions.map(t => getTxFingerprint(t)));
+      // Duplicate detection & replacement
+      const txMap = new Map();
+      transactions.forEach((t, index) => {
+        txMap.set(getTxFingerprint(t), index);
+      });
+
+      let updatedCount = 0;
+      let addedCount = 0;
       const newData = [];
-      let duplicateCount = 0;
 
       pendingUploadData.forEach(t => {
         const fp = getTxFingerprint(t);
-        if (existingFingerprints.has(fp)) {
-          duplicateCount++;
+        if (txMap.has(fp)) {
+          // Replace existing (update)
+          const index = txMap.get(fp);
+          t.id = transactions[index].id; // Keep original ID for Supabase upsert
+          transactions[index] = t; // Replace in array
+          updatedCount++;
+          newData.push(t); // Track for offline queue
         } else {
+          // Insert new
+          transactions.push(t);
+          txMap.set(fp, transactions.length - 1);
+          addedCount++;
           newData.push(t);
-          existingFingerprints.add(fp); // Prevent intra-upload duplicates too
         }
       });
 
       if (newData.length === 0) {
-        alert(`Semua ${duplicateCount} transaksi sudah ada di database (duplikat). Tidak ada data baru yang ditambahkan.`);
+        alert('Tidak ada data yang ditambahkan atau diupdate.');
         cancelExcelUpload();
         return;
       }
 
-      if (duplicateCount > 0) {
-        const proceed = confirm(`Ditemukan ${duplicateCount} data duplikat yang akan dilewati.\n\n${newData.length} transaksi baru akan ditambahkan.\n\nLanjutkan?`);
+      if (updatedCount > 0) {
+        const proceed = confirm(`Ditemukan ${updatedCount} data di tanggal & customer yang sama. Data lama akan ditimpa dengan harga/qty baru dari Excel.\n\n${addedCount} transaksi baru akan ditambahkan.\n\nLanjutkan?`);
         if (!proceed) return;
       }
-
-      // Add new data
-      transactions = [...transactions, ...newData];
 
       // Save with progress indicator
       const commitBtn = document.getElementById('btn-commit-upload');
@@ -1526,8 +1546,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const skippedRows = pendingUploadData._skippedRows || 0;
       let resultMsg = `✅ Berhasil!\n\n`;
-      resultMsg += `• ${newData.length.toLocaleString('id-ID')} transaksi baru ditambahkan\n`;
-      if (duplicateCount > 0) resultMsg += `• ${duplicateCount} data duplikat dilewati\n`;
+      if (addedCount > 0) resultMsg += `• ${addedCount.toLocaleString('id-ID')} transaksi baru ditambahkan\n`;
+      if (updatedCount > 0) resultMsg += `• ${updatedCount.toLocaleString('id-ID')} transaksi berhasil di-update (ditimpa)\n`;
       if (skippedRows > 0) resultMsg += `• ${skippedRows} baris Excel dilewati (data tidak lengkap)\n`;
       if (!navigator.onLine) resultMsg += `\n⚠️ Mode Offline: Data disimpan lokal, akan sync saat online.`;
 
