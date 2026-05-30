@@ -997,6 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td data-label="QTY">${t.qty}</td>
           <td data-label="Harga">${formatIDR(t.price)}</td>
           <td data-label="Nominal" style="color:var(--accent);font-weight:600">${formatIDR(t.nominal)}</td>
+          <td data-label="Diskon">${formatIDR(t.disc || 0)}</td>
           <td data-label="Pembayaran"><span class="badge ${paymentBadge}">${t.payment_type}</span></td>
           <td data-label="Aksi" class="admin-only" style="text-align: center; display: ${activeRole === 'admin' ? '' : 'none'};">
             <button class="btn-ghost btn-edit-tx" data-id="${t.id}" title="Edit"><i data-lucide="edit-2"></i></button>
@@ -1091,6 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'QTY (krat)': t.qty,
         'Harga Jual (Rp)': t.price,
         'Nominal (Rp)': t.nominal,
+        'Diskon (Rp)': t.disc || 0,
         'Jenis Pembayaran': t.payment_type,
         'Harga Beli (Rp)': buyPrice,
         'Profit (Rp)': profit
@@ -1123,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.json_to_sheet(rows);
-    ws1['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    ws1['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws1, 'Detail Transaksi');
 
     const ws2 = XLSX.utils.json_to_sheet(summaryRows);
@@ -1307,6 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const colPrice = headers.findIndex(h => h.includes('harga'));
           const colNom = headers.findIndex(h => h.includes('nominal'));
           const colPay = headers.findIndex(h => h.includes('pembayaran'));
+          const colDisc = headers.findIndex(h => h.includes('disc') || h.includes('diskon'));
 
           if ([colDate, colProd, colQty, colPrice, colNom, colPay].some(i => i === -1)) {
             skippedDetails.push(`Sheet "${sheetName}": Kolom wajib tidak ditemukan`);
@@ -1372,7 +1375,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const prodName = row[colProd] ? row[colProd].toString().trim() : '';
-            const paymentVal = row[colPay] ? row[colPay].toString().trim() : 'Tempo';
+            
+            const paymentRaw = row[colPay] ? row[colPay].toString().trim() : '';
+            let paymentType = 'Tempo';
+            if (paymentRaw === '0' || paymentRaw.toLowerCase().includes('cash')) {
+              paymentType = 'Cash';
+            } else if (paymentRaw === '13' || paymentRaw.toLowerCase().includes('tempo')) {
+              paymentType = 'Tempo';
+            } else {
+              paymentType = paymentRaw.toLowerCase().includes('cash') ? 'Cash' : 'Tempo';
+            }
+
+            const discVal = colDisc !== -1 ? parseFloat(row[colDisc] || 0) : 0;
             
             let salesmanName = sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase();
             if (colSales !== -1 && row[colSales]) {
@@ -1392,7 +1406,8 @@ document.addEventListener('DOMContentLoaded', () => {
               qty: parseInt(row[colQty] || 0),
               price: parseFloat(row[colPrice] || 0),
               nominal: parseFloat(row[colNom] || 0),
-              payment_type: paymentVal.toLowerCase().includes('cash') ? 'Cash' : 'Tempo'
+              disc: discVal,
+              payment_type: paymentType
             });
           }
         });
@@ -1466,6 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td data-label="QTY">${t.qty}</td>
         <td data-label="Harga Jual">${formatIDR(t.price)}</td>
         <td data-label="Nominal"><b>${formatIDR(t.nominal)}</b></td>
+        <td data-label="Diskon">${formatIDR(t.disc || 0)}</td>
         <td data-label="Pembayaran"><span class="badge ${paymentBadge}">${t.payment_type}</span></td>
       `;
       previewTbody.appendChild(tr);
@@ -1650,6 +1666,7 @@ document.addEventListener('DOMContentLoaded', () => {
         product_code: prodCode,
         qty, price,
         nominal: qty * price,
+        disc: 0,
         payment_type: paymentType
       });
       saveState();
@@ -2404,6 +2421,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td data-label="Qty">${t.qty}</td>
           <td data-label="Harga">${formatIDR(t.price)}</td>
           <td data-label="Nominal" style="font-weight: 600; color: var(--accent);">${formatIDR(t.nominal)}</td>
+          <td data-label="Diskon">${formatIDR(t.disc || 0)}</td>
           <td data-label="Pembayaran"><span class="badge ${badgeClass}">${t.payment_type}</span></td>
         `;
         todayTbody.appendChild(tr);
@@ -2988,6 +3006,7 @@ document.addEventListener('DOMContentLoaded', () => {
             qty: item.qty,
             price: item.price,
             nominal: item.nominal,
+            disc: 0,
             payment_type: o.payment_type
           });
         });
