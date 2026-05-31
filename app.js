@@ -123,6 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
         transactions = JSON.parse(cachedTx);
         console.log('Loaded transactions from offline cache:', transactions.length);
       }
+      const masterCache = localStorage.getItem('gamas_master_cache');
+      if (masterCache) {
+        const mc = JSON.parse(masterCache);
+        if (mc.products) products = mc.products;
+        if (mc.stockData) stockData = mc.stockData;
+        if (mc.salesmen) salesmen = mc.salesmen;
+        if (mc.supplierBills) supplierBills = mc.supplierBills;
+        if (mc.salesOrders) salesOrders = mc.salesOrders;
+        console.log('Loaded master data from offline cache');
+      }
+      
       if (navigator.onLine) {
         alert("Gagal terhubung ke Supabase. Pastikan koneksi internet stabil.");
       }
@@ -192,6 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cache transactions locally for offline access
     try {
       localStorage.setItem('gamas_tx_cache', JSON.stringify(transactions.slice(0, 5000)));
+      localStorage.setItem('gamas_master_cache', JSON.stringify({
+        products, stockData, salesmen, supplierBills, salesOrders
+      }));
     } catch (cacheErr) {
       console.warn('Cache transaksi lokal gagal (mungkin penuh):', cacheErr);
     }
