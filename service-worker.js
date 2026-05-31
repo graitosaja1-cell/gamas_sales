@@ -1,12 +1,12 @@
-const CACHE_NAME = 'gamas-cache-v1';
+const CACHE_NAME = 'gamas-sales-cache-v1';
 const urlsToCache = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
-  'https://unpkg.com/lucide@latest',
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js',
+  '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://unpkg.com/lucide@latest',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
@@ -21,40 +21,42 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Skip cross-origin requests, except for our known CDNs
-  if (!event.request.url.startsWith(self.location.origin) && 
-      !event.request.url.includes('unpkg.com') && 
-      !event.request.url.includes('cdnjs.cloudflare') &&
-      !event.request.url.includes('googleapis.com') &&
-      !event.request.url.includes('jsdelivr.net')) {
-    
-    // For Supabase API calls (which are cross-origin), try network first, then cache
-    if (event.request.url.includes('supabase.co')) {
-      event.respondWith(
-        fetch(event.request).catch(() => {
-          console.warn('Offline: Supabase API call failed');
-          return new Response(JSON.stringify({ error: 'Offline', message: 'You are currently offline' }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        })
-      );
-      return;
-    }
-    
-    return;
-  }
-
-  // Network First, Fallback to Cache Strategy for app files
   event.respondWith(
-    fetch(event.request).then(response => {
-      return caches.open(CACHE_NAME).then(cache => {
-        cache.put(event.request, response.clone());
-        return response;
-      });
-    }).catch(() => {
-      return caches.match(event.request);
-    })
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+
+        return fetch(event.request).then(
+          function(response) {
+            // Check if we received a valid response
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // IMPORTANT: Clone the response. A response is a stream
+            // and because we want the browser to consume the response
+            // as well as the cache consuming the response, we need
+            // to clone it so we have two streams.
+            var responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(function(cache) {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
+      }).catch(() => {
+        // Fallback for offline mode, e.g., returning cached index.html
+        // if navigating to a page that isn't cached.
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+      })
   );
 });
 

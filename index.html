@@ -267,9 +267,10 @@
                 <option value="Tempo">Tempo</option>
               </select>
             </div>
-            <div class="filter-group" style="flex: 0 0 auto;">
+            <div class="filter-group" style="flex: 0 0 auto; display: flex; gap: 0.5rem;">
               <label class="filter-label">&nbsp;</label>
-              <button class="btn btn-primary" id="btn-apply-filter" style="width: 100%;">Terapkan</button>
+              <button class="btn btn-primary" id="btn-apply-filter">Terapkan</button>
+              <button class="btn btn-secondary" id="btn-reset-filters">Reset</button>
             </div>
           </div>
 
@@ -293,6 +294,7 @@
                 <thead>
                   <tr>
                     <th>Tanggal</th>
+                    <th>No Faktur</th>
                     <th>Salesman</th>
                     <th>Customer</th>
                     <th>Produk</th>
@@ -529,6 +531,7 @@
               <table class="data-table">
                 <thead>
                   <tr>
+                    <th>No Faktur</th>
                     <th>Salesman</th>
                     <th>Customer</th>
                     <th>Produk</th>
@@ -781,6 +784,7 @@
                 <table class="data-table">
                   <thead>
                     <tr>
+                      <th>No Faktur</th>
                       <th>Salesman</th>
                       <th>Tanggal</th>
                       <th>Customer</th>
@@ -829,6 +833,10 @@
                 <div class="form-group">
                   <label class="form-label">Tanggal</label>
                   <input type="date" class="form-control" id="sale-date" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">No Faktur</label>
+                  <input type="text" class="form-control" id="sale-faktur" placeholder="Kosongkan jika tidak ada">
                 </div>
                 <div class="form-group">
                   <label class="form-label">Customer</label>
@@ -1242,6 +1250,10 @@
             <div class="form-group">
               <label class="form-label">Tanggal</label>
               <input type="date" class="form-control" id="tx-edit-date" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">No Faktur</label>
+              <input type="text" class="form-control" id="tx-edit-faktur" placeholder="-">
             </div>
             <div class="form-group">
               <label class="form-label">Customer</label>

@@ -183,6 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (offlineQueue.length > 0) {
       await syncOfflineQueue(offlineQueue);
     }
+    // Otomatis sinkronisasi semua perubahan lokal ke database saat online
+    saveState();
   });
   window.addEventListener('offline', () => updateOnlineIndicator());
 
@@ -915,7 +917,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const productSelect = document.getElementById('filter-product');
     const paymentSelect = document.getElementById('filter-payment');
     const searchInput = document.getElementById('filter-search-query') || document.getElementById('filter-customer');
-    const btnReset = document.getElementById('btn-apply-filter') || document.getElementById('btn-reset-filters');
+    const btnReset = document.getElementById('btn-reset-filters');
+    const btnApply = document.getElementById('btn-apply-filter');
 
     if (!dateStartInput) return; // fail safe
 
@@ -991,6 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td data-label="Tanggal">${formattedDate}</td>
+          <td data-label="No Faktur">${t.no_faktur || '-'}</td>
           <td data-label="Salesman">${t.salesman}</td>
           <td data-label="Customer"><b>${t.customer}</b></td>
           <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
@@ -1015,6 +1019,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (productSelect) productSelect.onchange = () => { window.currentTxPage = 1; applyFilters(); };
     if (paymentSelect) paymentSelect.onchange = () => { window.currentTxPage = 1; applyFilters(); };
     if (searchInput) searchInput.oninput = () => { window.currentTxPage = 1; applyFilters(); };
+
+    if (btnApply) btnApply.onclick = () => { window.currentTxPage = 1; applyFilters(); };
 
     if (btnReset) btnReset.onclick = () => {
       window.currentTxPage = 1;
@@ -1619,6 +1625,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputPayment = document.getElementById('sale-payment');
     const inputQty = document.getElementById('sale-qty');
     const inputDate = document.getElementById('sale-date');
+    const inputFaktur = document.getElementById('sale-faktur');
     const inputSalesman = document.getElementById('sale-salesman');
     const inputCust = document.getElementById('sale-customer');
 
@@ -1661,6 +1668,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: crypto.randomUUID(),
         salesman: inputSalesman.value,
         date: inputDate.value,
+        no_faktur: inputFaktur ? inputFaktur.value.trim() : '',
         customer: inputCust.value.trim().toUpperCase(),
         product_name: p.name,
         product_code: prodCode,
@@ -1673,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Transaksi berhasil disimpan!');
       form.reset();
       inputDate.value = today;
+      if (inputFaktur) inputFaktur.value = '';
       updateCalc();
       window.location.hash = `#/sales/seller/${inputSalesman.value.toLowerCase()}`;
     };
@@ -1695,6 +1704,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('tx-edit-id').value = t.id;
     document.getElementById('tx-edit-date').value = t.date;
+    const fakturInput = document.getElementById('tx-edit-faktur');
+    if (fakturInput) fakturInput.value = t.no_faktur || '';
     document.getElementById('tx-edit-customer').value = t.customer;
     document.getElementById('tx-edit-qty').value = t.qty;
     document.getElementById('tx-edit-salesman').value = t.salesman;
@@ -1749,6 +1760,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const nominal = parseFloat(document.getElementById('tx-edit-nominal').value);
 
       t.date = document.getElementById('tx-edit-date').value;
+      const fakturEditInput = document.getElementById('tx-edit-faktur');
+      t.no_faktur = fakturEditInput ? fakturEditInput.value.trim() : '';
       t.customer = document.getElementById('tx-edit-customer').value.toUpperCase();
       t.product_code = prodCode;
       t.product_name = p.name;
@@ -2415,6 +2428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
         const badgeClass = t.payment_type.toLowerCase();
         tr.innerHTML = `
+          <td data-label="No Faktur">${t.no_faktur || '-'}</td>
           <td data-label="Salesman"><b>${t.salesman}</b></td>
           <td data-label="Customer">${t.customer}</td>
           <td data-label="Produk"><span class="badge prod">${t.product_code}</span></td>
